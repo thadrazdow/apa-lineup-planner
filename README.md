@@ -1,6 +1,6 @@
 # APA Lineup Planner
 
-Plan legal APA 8-ball and 9-ball lineups under the 23-point skill level cap.
+Plan legal APA 8-ball and 9-ball lineups under the 23-point skill level cap and the 2-senior rule (at most two players of SL 6+ per match).
 
 **Live:** https://thadrazdow.github.io/apa-lineup-planner/
 

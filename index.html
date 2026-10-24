@@ -451,6 +451,9 @@
     <script>
         const STORE_KEY = 'apa-lineup-planner:v1';
         const CAP = 23;
+        // APA senior rule: at most 2 players of SL 6 or higher can play in one team match.
+        const SENIOR_SL = 6, MAX_SENIORS = 2;
+        const isSenior = (sl) => sl >= SENIOR_SL;
         const TEAM_SIZE = 5;
         const MIN_ROSTER = 5, MAX_ROSTER = 8;
         const FORMATS = {
@@ -531,20 +534,21 @@
             return forced;
         }
 
-        // Can the forced players be completed to a full lineup without breaking the cap?
-        // Fills the open spots with the lowest available skill levels.
+        // Can the forced players be completed to a full lineup without breaking the cap or the senior rule?
+        // Fills the open spots with the lowest available skill levels. Seniors are the highest levels,
+        // so that same fill also uses the fewest seniors possible.
         function feasible(forced) {
             if (forced.size > TEAM_SIZE) return false;
-            let total = 0;
-            forced.forEach(i => { total += SL(act[i]); });
+            let total = 0, seniors = 0;
+            forced.forEach(i => { const v = SL(act[i]); total += v; if (isSenior(v)) seniors++; });
             const fillers = act
                 .filter((p, i) => !forced.has(i) && p.state !== 'out')
                 .map(SL)
                 .sort((a, b) => a - b);
             const k = TEAM_SIZE - forced.size;
             if (fillers.length < k) return false;
-            for (let t = 0; t < k; t++) total += fillers[t];
-            return total <= CAP;
+            for (let t = 0; t < k; t++) { total += fillers[t]; if (isSenior(fillers[t])) seniors++; }
+            return total <= CAP && seniors <= MAX_SENIORS;
         }
 
         // Lineups are grouped by their skill levels (e.g. 7,6,5,3,2). Within a group,
@@ -576,6 +580,7 @@
                     if ([...forced].some(i => !combo.includes(i))) continue;
                     const total = combo.reduce((a, i) => a + SL(P[i]), 0);
                     if (total > CAP) continue;
+                    if (combo.filter(i => isSenior(SL(P[i]))).length > MAX_SENIORS) continue;
                     const sls = combo.map(i => SL(P[i])).sort((a, b) => b - a);
                     const key = sls.join(',');
                     if (!groups.has(key)) groups.set(key, { key, sls, total, combos: [] });
@@ -671,11 +676,13 @@
             const left = CAP - used;
             const spots = TEAM_SIZE - played.length;
             const eligible = P.filter((p, i) => !played.includes(p.id) && p.state !== 'out' && canPutUp[i]);
+            const seniors = played.filter(id => isSenior(SL(byId[id]))).length;
             let text;
-            if (used > CAP) text = `<b>${used}</b> of ${CAP} &middot; <b>over the cap</b>, undo a pick`;
+            if (seniors > MAX_SENIORS) text = `<b>${seniors}</b> seniors played &middot; <b>max is ${MAX_SENIORS}</b>, undo a pick`;
+            else if (used > CAP) text = `<b>${used}</b> of ${CAP} &middot; <b>over the cap</b>, undo a pick`;
             else if (spots === 0) text = `Lineup complete &middot; <b>${used}</b> of ${CAP}`;
             else {
-                text = `<b>${used}</b> of ${CAP} used &middot; <b>${left}</b> left for ${spots} player${spots === 1 ? '' : 's'}`;
+                text = `<b>${used}</b> of ${CAP} used &middot; <b>${left}</b> left for ${spots} player${spots === 1 ? '' : 's'} &middot; seniors <b>${seniors}</b> of ${MAX_SENIORS}`;
                 if (eligible.length) text += ` &middot; next can be up to <b>SL ${Math.max(...eligible.map(SL))}</b>`;
                 else text += ` &middot; <b>no one left fits</b>, undo a pick or change who's In`;
             }
@@ -707,7 +714,7 @@
             $('title').textContent = `APA ${fmtLabel} Lineup Planner`;
             $('info').innerHTML = `${P.length} players` +
                 (missing ? ` (${missing} without a ${fmtLabel} SL)` : '') +
-                ` &nbsp;&middot;&nbsp; Cap <b>${CAP}</b> &nbsp;&middot;&nbsp; ${TEAM_SIZE} play per match`;
+                ` &nbsp;&middot;&nbsp; Cap <b>${CAP}</b> &nbsp;&middot;&nbsp; Max <b>${MAX_SENIORS}</b> seniors (SL ${SENIOR_SL}+)`;
             $('fmtSwitch').querySelectorAll('[data-fmt]').forEach(b => {
                 b.setAttribute('aria-pressed', String(b.dataset.fmt === app.format));
                 b.disabled = matchOn && b.dataset.fmt !== app.format;
@@ -721,8 +728,8 @@
             toggle.textContent = matchOn ? 'End match' : 'Match night';
             toggle.setAttribute('aria-pressed', String(matchOn));
             $('legend').innerHTML = matchOn
-                ? 'Tap <b>Put up</b> as each player goes to the table; tap a played player to undo. <b>No fit</b> means putting them up would break the 23 cap.'
-                : 'Tap a skill level to change it. Drag or tap a slider to mark each player <b>In</b> (definitely playing), <b>Maybe</b> or <b>Out</b>. A <b>greyed</b> slider can\'t be set to In &mdash; it would break the 23 cap.';
+                ? 'Tap <b>Put up</b> as each player goes to the table; tap a played player to undo. <b>No fit</b> means putting them up would break the 23 cap or the 2-senior limit.'
+                : 'Tap a skill level to change it. Drag or tap a slider to mark each player <b>In</b> (definitely playing), <b>Maybe</b> or <b>Out</b>. A <b>greyed</b> slider can\'t be set to In &mdash; it would break the 23 cap or the 2-senior limit (SL 6+).';
 
             rows.forEach((r, i) => {
                 const p = P[i];
@@ -751,7 +758,9 @@
             const inCount = count('in'), outCount = count('out'), availCount = count('avail');
             const notOut = P.length - outCount;
             let note = '';
+            const forcedSeniors = [...forced].filter(i => isSenior(SL(P[i]))).length;
             if (forced.size > TEAM_SIZE) note = `Too many set to In (max ${TEAM_SIZE})`;
+            else if (forcedSeniors > MAX_SENIORS) note = `Too many seniors (SL ${SENIOR_SL}+) set to In &mdash; max ${MAX_SENIORS}`;
             else if (P.length < TEAM_SIZE) note = `Only ${P.length} player${P.length === 1 ? ' has' : 's have'} a ${fmtLabel} skill level &mdash; add more in Edit roster`;
             else if (notOut < TEAM_SIZE) note = `Need ${TEAM_SIZE} available (have ${notOut})`;
             const n = results.length;
