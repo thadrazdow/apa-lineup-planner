@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>APA Lineup Planner</title>
+    <meta name="description" content="Plan legal APA 8-ball lineups under the 23-point skill level cap.">
+    <meta name="theme-color" content="#f3f5f7" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#121518" media="(prefers-color-scheme: dark)">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='%23111'/%3E%3Ccircle cx='50' cy='50' r='22' fill='%23fff'/%3E%3Ctext x='50' y='60' font-family='Arial' font-weight='bold' font-size='28' text-anchor='middle' fill='%23111'%3E8%3C/text%3E%3C/svg%3E">
+    <style>
+        :root {
+            --bg: #f3f5f7;
+            --card: #ffffff;
+            --ink: #1f2d3a;
+            --muted: #6b7885;
+            --line: #dde2e7;
+            --head: #2f80c8;
+            --head-ink: #ffffff;
+            --g23: #d4edda;
+            --g22: #fff3cd;
+            --g21: #f8d7da;
+            --g20: #d6e4ff;
+            --g19: #e7d6ff;
+            --glow: #e9eaec;
+            --summary-bg: #eef1f4;
+            --track-bg: #eef1f4;
+            --thumb-in-bg: #2e7d32;
+            --thumb-in-ink: #ffffff;
+            --thumb-avail-bg: #d7e9f7;
+            --thumb-avail-ink: #1c3d53;
+            --thumb-out-bg: #d94545;
+            --thumb-out-ink: #ffffff;
+            --btn-bg: #2f80c8;
+            --btn-ink: #ffffff;
+            --shadow: 0 1px 2px rgba(16,24,32,.06), 0 4px 16px rgba(16,24,32,.06);
+
+            --trackH: 168px;
+            --thumbH: 40px;
+            --editH: 40px;
+            --gap: 6px;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --bg: #121518;
+                --card: #1c2025;
+                --ink: #e6e9ec;
+                --muted: #98a3ad;
+                --line: #313840;
+                --head: #2c6ca3;
+                --head-ink: #ffffff;
+                --g23: #1f4a2e;
+                --g22: #4a431f;
+                --g21: #4a2626;
+                --g20: #1e3356;
+                --g19: #33224d;
+                --glow: #2a2f35;
+                --summary-bg: #23282e;
+                --track-bg: #252b31;
+                --thumb-in-bg: #2e7d32;
+                --thumb-in-ink: #ffffff;
+                --thumb-avail-bg: #2a4a63;
+                --thumb-avail-ink: #d4eafc;
+                --thumb-out-bg: #b23b3b;
+                --thumb-out-ink: #ffecec;
+                --btn-bg: #2c6ca3;
+                --btn-ink: #ffffff;
+                --shadow: 0 1px 2px rgba(0,0,0,.3);
+            }
+        }
+        :root[data-theme="dark"] {
+            --bg: #121518;
+            --card: #1c2025;
+            --ink: #e6e9ec;
+            --muted: #98a3ad;
+            --line: #313840;
+            --head: #2c6ca3;
+            --head-ink: #ffffff;
+            --g23: #1f4a2e;
+            --g22: #4a431f;
+            --g21: #4a2626;
+            --g20: #1e3356;
+            --g19: #33224d;
+            --glow: #2a2f35;
+            --summary-bg: #23282e;
+            --track-bg: #252b31;
+            --thumb-in-bg: #2e7d32;
+            --thumb-in-ink: #ffffff;
+            --thumb-avail-bg: #2a4a63;
+            --thumb-avail-ink: #d4eafc;
+            --thumb-out-bg: #b23b3b;
+            --thumb-out-ink: #ffecec;
+            --btn-bg: #2c6ca3;
+            --btn-ink: #ffffff;
+            --shadow: 0 1px 2px rgba(0,0,0,.3);
+        }
+        * { box-sizing: border-box; }
+        html { -webkit-text-size-adjust: 100%; }
+        body {
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 16px max(12px, env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+            background-color: var(--bg);
+            color: var(--ink);
+            font-size: 15px;
+            line-height: 1.4;
+        }
+        button { font: inherit; -webkit-tap-highlight-color: transparent; }
+
+        header { text-align: center; margin: 0 auto 14px; max-width: 1100px; }
+        h1 { margin: 0 0 4px; font-size: 22px; letter-spacing: -.2px; }
+        .info { color: var(--muted); font-size: 13px; }
+        .info b { color: var(--ink); font-weight: 600; }
+
+        .layout { max-width: 1100px; margin: 0 auto; display: grid; gap: 14px; }
+        .panel {
+            background: var(--card); border-radius: 14px; padding: 14px 12px;
+            box-shadow: var(--shadow); border: 1px solid var(--line);
+            min-width: 0;
+        }
+        .panel h2 {
+            margin: 0 0 12px; font-size: 13px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: .6px; color: var(--muted);
+        }
+
+        /* Roster sliders */
+        .board { display: flex; gap: var(--gap); align-items: flex-start; }
+        .gutter {
+            flex: 0 0 auto; display: flex; flex-direction: column; justify-content: space-between;
+            height: var(--trackH); margin-top: calc(var(--editH) + 8px); padding: 12px 0;
+            font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px;
+            color: var(--muted); text-align: right;
+        }
+        .chips { flex: 1; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: var(--gap); }
+        .slider { display: flex; flex-direction: column; align-items: stretch; min-width: 0; }
+        .sl-edit {
+            height: var(--editH); margin: 0 0 8px; padding: 0;
+            display: flex; align-items: center; justify-content: center; gap: 2px;
+            border: 1px solid var(--line); border-radius: 10px;
+            background: var(--card); color: var(--ink); font-size: 18px; font-weight: 700;
+            cursor: pointer; user-select: none; -webkit-user-select: none;
+        }
+        .sl-edit .caret { font-size: 9px; color: var(--muted); font-weight: normal; }
+        .sl-edit:hover { border-color: var(--head); }
+        .sl-edit:active { background: var(--track-bg); }
+        .track {
+            position: relative; height: var(--trackH); width: 100%;
+            border-radius: 12px; background: var(--track-bg);
+            border: 1px solid var(--line);
+            touch-action: none; cursor: pointer; outline: none;
+        }
+        .track:focus-visible, .sl-edit:focus-visible, .reset:focus-visible, .pick:focus-visible {
+            outline: 2px solid var(--head); outline-offset: 2px;
+        }
+        .track::before, .track::after {
+            content: ""; position: absolute; left: 20%; right: 20%; height: 1px;
+            background: var(--line);
+        }
+        .track::before { top: 33.3%; }
+        .track::after { top: 66.6%; }
+        .thumb {
+            position: absolute; left: 2px; right: 2px; height: var(--thumbH);
+            border-radius: 9px; display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0;
+            transition: top .12s ease, background-color .12s ease; z-index: 1;
+            box-shadow: 0 1px 3px rgba(0,0,0,.25); overflow: hidden; white-space: nowrap;
+        }
+        .thumb.in { background: var(--thumb-in-bg); color: var(--thumb-in-ink); }
+        .thumb.avail { background: var(--thumb-avail-bg); color: var(--thumb-avail-ink); }
+        .thumb.out { background: var(--thumb-out-bg); color: var(--thumb-out-ink); }
+        .track.locked { opacity: .4; }
+        .thumb .short { display: none; }
+        @media (max-width: 599px) {
+            .thumb .full { display: none; }
+            .thumb .short { display: inline; font-size: 12px; }
+        }
+
+        .legend { font-size: 13px; color: var(--muted); margin: 14px 0 0; line-height: 1.5; }
+        .legend b { color: var(--ink); }
+
+        .controls {
+            display: flex; justify-content: space-between; align-items: center; gap: 10px;
+            margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); flex-wrap: wrap;
+        }
+        .status { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; min-width: 0; }
+        .stat {
+            display: inline-flex; align-items: baseline; gap: 5px; padding: 5px 10px;
+            border-radius: 999px; background: var(--track-bg); font-size: 13px; color: var(--muted);
+        }
+        .stat b { color: var(--ink); font-size: 15px; }
+        .stat.lineups { background: var(--head); color: var(--head-ink); }
+        .stat.lineups b { color: var(--head-ink); }
+        .note { flex-basis: 100%; font-size: 13px; color: var(--thumb-out-bg); font-weight: 600; }
+        .reset {
+            background: var(--btn-bg); color: var(--btn-ink); border: none; border-radius: 10px;
+            padding: 10px 18px; font-size: 15px; font-weight: 600; cursor: pointer; min-height: 44px;
+        }
+        .reset:hover { filter: brightness(1.08); }
+
+        /* Picker */
+        .overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,.45);
+            display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px;
+        }
+        .overlay[hidden] { display: none; }
+        .picker {
+            background: var(--card); color: var(--ink); border-radius: 16px; padding: 18px;
+            width: min(320px, 100%); text-align: center; box-shadow: 0 8px 28px rgba(0,0,0,.35);
+        }
+        .picker h4 { margin: 0 0 14px; font-size: 16px; }
+        .picker .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .pick {
+            padding: 16px 0; font-size: 22px; font-weight: 700;
+            border: 1px solid var(--line); border-radius: 12px;
+            background: var(--track-bg); color: var(--ink); cursor: pointer;
+        }
+        .pick:hover { border-color: var(--head); }
+        .pick.sel { background: var(--thumb-in-bg); color: var(--thumb-in-ink); border-color: transparent; }
+        .picker .cancel { margin-top: 12px; font-size: 15px; color: var(--muted); background: none; border: none; cursor: pointer; padding: 10px 16px; }
+
+        /* Results */
+        .results-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+        .results-head h2 { margin: 0; }
+        .results-head span { font-size: 13px; color: var(--muted); }
+        .table-wrap { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; font-size: 15px; font-variant-numeric: tabular-nums; }
+        th, td { padding: 8px 2px; text-align: center; border-bottom: 1px solid var(--line); }
+        tbody tr:last-child td { border-bottom: none; }
+        th {
+            background-color: var(--head); color: var(--head-ink); font-weight: 700; font-size: 12px;
+            text-transform: uppercase; letter-spacing: .4px; position: sticky; top: 0; z-index: 2;
+        }
+        td.idx { color: var(--muted); font-size: 12px; }
+        td.tot { font-weight: 800; font-size: 16px; }
+        .total-23 { background-color: var(--g23); }
+        .total-22 { background-color: var(--g22); }
+        .total-21 { background-color: var(--g21); }
+        .total-20 { background-color: var(--g20); }
+        .total-19 { background-color: var(--g19); }
+        .total-low { background-color: var(--glow); }
+        .empty { text-align: center; color: var(--muted); padding: 24px 8px; font-size: 14px; }
+
+        .summary { margin-top: 12px; padding: 12px; background-color: var(--summary-bg); border-radius: 10px; font-size: 14px; }
+        .summary h3 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
+        .totals { display: flex; flex-wrap: wrap; gap: 6px; }
+        .tchip {
+            display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 6px;
+            border-radius: 999px; border: 1px solid var(--line); font-size: 13px; background: var(--card);
+        }
+        .tchip .swatch { width: 22px; height: 18px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; border: 1px solid var(--line); }
+        .tchip b { font-weight: 700; }
+
+        /* Small phones */
+        @media (max-width: 380px) {
+            :root { --gap: 4px; --trackH: 156px; }
+            .gutter { font-size: 9px; letter-spacing: 0; }
+            .thumb { font-size: 9px; }
+            .sl-edit { font-size: 16px; }
+            .sl-edit .caret { display: none; }
+        }
+
+        /* Tablet and up */
+        @media (min-width: 600px) {
+            body { padding-top: 24px; }
+            h1 { font-size: 26px; }
+            .panel { padding: 18px; }
+            :root { --gap: 10px; --trackH: 180px; }
+            .thumb { font-size: 11px; letter-spacing: .3px; }
+            .gutter { font-size: 11px; }
+        }
+
+        /* Desktop: controls pinned left, results right */
+        @media (min-width: 1024px) {
+            body { padding: 32px 24px; }
+            header { margin-bottom: 20px; }
+            .layout { grid-template-columns: minmax(500px, 560px) 1fr; gap: 20px; align-items: start; }
+            :root { --gap: 8px; }
+            .thumb { letter-spacing: 0; }
+            .roster { position: sticky; top: 20px; }
+            .results { max-height: calc(100vh - 40px); display: flex; flex-direction: column; position: sticky; top: 20px; }
+            .table-wrap { overflow: auto; flex: 1 1 auto; min-height: 120px; }
+            .summary { flex: 0 0 auto; }
+            tbody tr:hover td { filter: brightness(.96); }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>APA 8-Ball Lineup Planner</h1>
+        <div class="info">Roster <b id="rosterList"></b> &nbsp;&middot;&nbsp; Cap <b>23</b> &nbsp;&middot;&nbsp; 5 play per match</div>
+    </header>
+
+    <main class="layout">
+        <section class="panel roster" aria-label="Roster">
+            <h2>Roster &amp; availability</h2>
+            <div class="board">
+                <div class="gutter" aria-hidden="true"><span>In</span><span>Maybe</span><span>Out</span></div>
+                <div class="chips" id="chips"></div>
+            </div>
+            <p class="legend">Tap a skill level to change it. Drag or tap a slider: top = <b>In</b> (definitely playing), middle = <b>Maybe</b>, bottom = <b>Out</b>. A <b>greyed</b> slider can't be set to In &mdash; it would break the 23 cap.</p>
+
+            <div class="controls">
+                <div class="status" id="status" aria-live="polite"></div>
+                <button class="reset" id="reset">Reset</button>
+            </div>
+        </section>
+
+        <section class="panel results" aria-label="Lineups">
+            <div class="results-head">
+                <h2>Legal lineups</h2>
+                <span>highest total first</span>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr><th>#</th><th>P1</th><th>P2</th><th>P3</th><th>P4</th><th>P5</th><th>Tot</th></tr>
+                    </thead>
+                    <tbody id="combinations"></tbody>
+                </table>
+            </div>
+
+            <div class="summary" id="summary"></div>
+        </section>
+    </main>
+
+    <div class="overlay" id="overlay" hidden>
+        <div class="picker" role="dialog" aria-modal="true" aria-labelledby="pickerTitle">
+            <h4 id="pickerTitle">Set skill level</h4>
+            <div class="grid" id="pickerGrid"></div>
+            <button class="cancel" id="pickerCancel">Cancel</button>
+        </div>
+    </div>
+
+    <script>
+        const players = [7, 6, 5, 5, 4, 3, 2, 2];
+        const cap = 23;
+        const teamSize = 5;
+        const SL_MIN = 2, SL_MAX = 7; // APA 8-ball skill range
+
+        // state per seat: 'in' (definitely), 'avail' (default), 'out'
+        let state = players.map(() => 'avail');
+        const STATE_TEXT = { in: 'IN', avail: 'MAYBE', out: 'OUT' };
+        const STATE_SHORT = { in: 'IN', avail: '?', out: 'OUT' };
+        const STATE_ORDER = ['in', 'avail', 'out'];
+        let canBeIn = players.map(() => true);
+        const sliders = [];
+
+        // Could player i be locked In without making a legal <=cap lineup impossible?
+        // Checks the already-In players + i, filled out with the smallest available players.
+        function feasibleWithIn(forcedIdx) {
+            if (forcedIdx.length > teamSize) return false;
+            const forcedSet = new Set(forcedIdx);
+            let forcedSum = 0;
+            forcedIdx.forEach(i => { forcedSum += players[i]; });
+            const fillers = [];
+            for (let j = 0; j < players.length; j++) {
+                if (forcedSet.has(j) || state[j] === 'out') continue;
+                fillers.push(players[j]);
+            }
+            const k = teamSize - forcedIdx.length;
+            if (fillers.length < k) return false;
+            fillers.sort((a, b) => a - b);
+            let minTotal = forcedSum;
+            for (let t = 0; t < k; t++) minTotal += fillers[t];
+            return minTotal <= cap;
+        }
+
+        function allIndexCombos(n, size) {
+            const out = [];
+            (function rec(start, acc) {
+                if (acc.length === size) { out.push(acc.slice()); return; }
+                for (let i = start; i <= n - (size - acc.length); i++) {
+                    acc.push(i); rec(i + 1, acc); acc.pop();
+                }
+            })(0, []);
+            return out;
+        }
+        const baseCombos = allIndexCombos(players.length, teamSize);
+
+        function compute() {
+            const inIdx = state.map((s, i) => s === 'in' ? i : -1).filter(i => i >= 0);
+            const outIdx = new Set(state.map((s, i) => s === 'out' ? i : -1).filter(i => i >= 0));
+            const results = [];
+            const seen = new Set();
+            if (inIdx.length <= teamSize) {
+                for (const combo of baseCombos) {
+                    if (combo.some(i => outIdx.has(i))) continue;
+                    if (!inIdx.every(r => combo.includes(r))) continue;
+                    const vals = combo.map(i => players[i]);
+                    const total = vals.reduce((a, b) => a + b, 0);
+                    if (total > cap) continue;
+                    const sortedVals = [...vals].sort((a, b) => a - b);
+                    const key = sortedVals.join(',');
+                    if (seen.has(key)) continue;
+                    seen.add(key);
+                    results.push({ players: sortedVals, total });
+                }
+            }
+            results.sort((a, b) => {
+                if (b.total !== a.total) return b.total - a.total;
+                return a.players.join('') - b.players.join('');
+            });
+            return { results, inIdx, outIdx };
+        }
+
+        function totalClass(total) {
+            return total >= 19 && total <= 23 ? `total-${total}` : 'total-low';
+        }
+
+        function setState(i, s) {
+            if (s === 'in' && !canBeIn[i]) s = 'avail'; // can't lock In under the cap
+            if (state[i] !== s) { state[i] = s; refresh(); }
+        }
+
+        function buildSliders() {
+            const chipsEl = document.getElementById('chips');
+            chipsEl.innerHTML = '';
+            sliders.length = 0;
+            players.forEach((v, i) => {
+                const col = document.createElement('div'); col.className = 'slider';
+
+                const edit = document.createElement('button'); edit.className = 'sl-edit';
+                edit.setAttribute('aria-label', `Player ${i + 1} skill level`);
+                edit.addEventListener('click', (e) => { e.preventDefault(); openPicker(i); });
+                col.appendChild(edit);
+
+                const track = document.createElement('div'); track.className = 'track';
+                track.tabIndex = 0;
+                track.setAttribute('role', 'slider');
+                track.setAttribute('aria-orientation', 'vertical');
+                const thumb = document.createElement('div'); thumb.className = 'thumb';
+                track.appendChild(thumb);
+                col.appendChild(track);
+
+                chipsEl.appendChild(col);
+                sliders.push({ track, thumb, edit });
+
+                const apply = (clientY) => {
+                    const rect = track.getBoundingClientRect();
+                    const frac = (clientY - rect.top) / rect.height;
+                    let s = 'avail';
+                    if (frac < 0.34) s = 'in';
+                    else if (frac > 0.66) s = 'out';
+                    setState(i, s);
+                };
+                let dragging = false;
+                track.addEventListener('pointerdown', (e) => {
+                    dragging = true;
+                    try { track.setPointerCapture(e.pointerId); } catch (_) {}
+                    apply(e.clientY); e.preventDefault();
+                    track.focus({ preventScroll: true });
+                });
+                track.addEventListener('pointermove', (e) => { if (dragging) apply(e.clientY); });
+                const stop = (e) => { dragging = false; try { track.releasePointerCapture(e.pointerId); } catch (_) {} };
+                track.addEventListener('pointerup', stop);
+                track.addEventListener('pointercancel', () => { dragging = false; });
+                track.addEventListener('keydown', (e) => {
+                    const pos = STATE_ORDER.indexOf(state[i]);
+                    if (e.key === 'ArrowUp' || e.key === 'ArrowRight') setState(i, STATE_ORDER[Math.max(0, pos - 1)]);
+                    else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') setState(i, STATE_ORDER[Math.min(2, pos + 1)]);
+                    else return;
+                    e.preventDefault();
+                });
+            });
+        }
+
+        function updateThumbs() {
+            sliders.forEach((s, i) => {
+                s.thumb.innerHTML = `<span class="full">${STATE_TEXT[state[i]]}</span><span class="short">${STATE_SHORT[state[i]]}</span>`;
+                s.thumb.classList.remove('in', 'avail', 'out');
+                s.thumb.classList.add(state[i]);
+                s.thumb.style.top = state[i] === 'in'
+                    ? '2px'
+                    : state[i] === 'out'
+                        ? 'calc(100% - var(--thumbH) - 2px)'
+                        : 'calc(50% - var(--thumbH) / 2)';
+                // grey the track when this player can't be locked In under the cap
+                s.track.classList.toggle('locked', state[i] === 'avail' && !canBeIn[i]);
+                s.track.setAttribute('aria-label', `Player ${i + 1}, skill level ${players[i]}`);
+                s.track.setAttribute('aria-valuetext', STATE_TEXT[state[i]].toLowerCase());
+                s.edit.innerHTML = players[i] + ' <span class="caret">&#9662;</span>';
+            });
+        }
+
+        function refresh() {
+            const data = compute();
+            // which players can still be locked In without breaking the cap
+            canBeIn = players.map((_, i) => state[i] === 'in' ? true : feasibleWithIn([...data.inIdx, i]));
+            updateThumbs();
+            document.getElementById('rosterList').textContent = players.join(', ');
+
+            const inCount = data.inIdx.length;
+            const outCount = data.outIdx.size;
+            const availCount = state.filter(s => s === 'avail').length;
+            const notOut = players.length - outCount;
+            let note = '';
+            if (inCount > teamSize) note = 'Too many set to In (max 5)';
+            else if (notOut < teamSize) note = `Need 5 available (have ${notOut})`;
+            const n = data.results.length;
+            document.getElementById('status').innerHTML =
+                `<span class="stat lineups"><b>${n}</b> lineup${n === 1 ? '' : 's'}</span>` +
+                `<span class="stat">In <b>${inCount}</b></span>` +
+                `<span class="stat">Maybe <b>${availCount}</b></span>` +
+                `<span class="stat">Out <b>${outCount}</b></span>` +
+                (note ? `<span class="note">${note}</span>` : '');
+
+            const tbody = document.getElementById('combinations');
+            tbody.innerHTML = '';
+            if (n === 0) {
+                tbody.innerHTML = `<tr><td class="empty" colspan="7">No lineups match the current selection.</td></tr>`;
+            } else {
+                data.results.forEach((c, idx) => {
+                    const tr = document.createElement('tr');
+                    tr.className = totalClass(c.total);
+                    tr.innerHTML = `<td class="idx">${idx + 1}</td>` + c.players.map(p => `<td>${p}</td>`).join('') + `<td class="tot">${c.total}</td>`;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            const totals = {};
+            data.results.forEach(c => { totals[c.total] = (totals[c.total] || 0) + 1; });
+            let html = '<h3>Lineups by total</h3>';
+            if (n) {
+                html += '<div class="totals">';
+                Object.keys(totals).sort((a, b) => b - a).forEach(t => {
+                    html += `<span class="tchip"><span class="swatch ${totalClass(+t)}">${t}</span><b>${totals[t]}</b>${t == cap ? ' &middot; max' : ''}</span>`;
+                });
+                html += '</div>';
+            } else {
+                html += '<div class="totals"><span class="tchip">None</span></div>';
+            }
+            document.getElementById('summary').innerHTML = html;
+        }
+
+        document.getElementById('reset').addEventListener('click', () => {
+            state = players.map(() => 'avail');
+            refresh();
+        });
+
+        // Skill-level picker
+        let editIndex = null;
+        const overlay = document.getElementById('overlay');
+        const pickerGrid = document.getElementById('pickerGrid');
+        const pickerTitle = document.getElementById('pickerTitle');
+
+        function buildPicker() {
+            pickerGrid.innerHTML = '';
+            for (let v = SL_MIN; v <= SL_MAX; v++) {
+                const b = document.createElement('button');
+                b.className = 'pick';
+                b.textContent = v;
+                b.dataset.v = v;
+                b.addEventListener('click', () => {
+                    if (editIndex !== null) { players[editIndex] = v; refresh(); }
+                    closePicker();
+                });
+                pickerGrid.appendChild(b);
+            }
+        }
+        function openPicker(i) {
+            editIndex = i;
+            pickerTitle.textContent = `Player ${i + 1} — skill level`;
+            [...pickerGrid.children].forEach(b => b.classList.toggle('sel', +b.dataset.v === players[i]));
+            overlay.hidden = false;
+            const sel = pickerGrid.querySelector('.sel') || pickerGrid.firstChild;
+            sel.focus({ preventScroll: true });
+        }
+        function closePicker() {
+            const i = editIndex;
+            overlay.hidden = true; editIndex = null;
+            if (i !== null) sliders[i].edit.focus({ preventScroll: true });
+        }
+
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) closePicker(); });
+        document.getElementById('pickerCancel').addEventListener('click', closePicker);
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !overlay.hidden) closePicker(); });
+
+        buildPicker();
+        buildSliders();
+        refresh();
+    </script>
+</body>
+</html>
