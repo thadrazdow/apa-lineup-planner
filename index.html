@@ -132,7 +132,8 @@
             letter-spacing: .6px; color: var(--muted);
         }
         .panel-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px; }
-        .fmt.fmt-switch { margin: 0; flex: 0 1 200px; }
+        .fmt.fmt-switch { margin: 0; flex: 0 1 200px; min-width: 132px; }
+        .head-links { display: flex; gap: 12px; flex: 0 0 auto; }
         .fmt.fmt-switch button { padding: 6px 8px; }
         .fmt button:disabled { opacity: .45; cursor: not-allowed; }
         .link { background: none; border: none; color: var(--head); font-weight: 600; font-size: 14px; padding: 6px 2px; }
@@ -272,7 +273,17 @@
 
         /* Results */
         .results-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 10px; }
-        .results-head span { font-size: 13px; color: var(--muted); }
+        .pill-toggle {
+            border: 1px solid var(--line); background: var(--track-bg); color: var(--muted);
+            border-radius: 999px; padding: 5px 12px; font-size: 13px; font-weight: 600;
+        }
+        .pill-toggle[aria-pressed="true"] { background: var(--head); color: var(--head-ink); border-color: transparent; }
+        .toast {
+            position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+            background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px;
+            font-size: 14px; font-weight: 600; z-index: 60; box-shadow: 0 4px 16px rgba(0,0,0,.25);
+            max-width: calc(100% - 32px); text-align: center;
+        }
         .table-wrap { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
         table { width: 100%; border-collapse: collapse; table-layout: fixed; font-variant-numeric: tabular-nums; }
         th, td { padding: 6px 2px; text-align: center; vertical-align: middle; border-bottom: 1px solid var(--line); }
@@ -390,7 +401,10 @@
                 <div class="fmt fmt-switch" id="fmtSwitch" role="group" aria-label="Tonight's format">
                     <button type="button" data-fmt="8">8-Ball</button><button type="button" data-fmt="9">9-Ball</button>
                 </div>
-                <button class="link" id="editRoster" type="button">Edit roster</button>
+                <div class="head-links">
+                    <button class="link" id="shareRoster" type="button">Share</button>
+                    <button class="link" id="editRoster" type="button">Edit roster</button>
+                </div>
             </div>
             <div class="match" id="matchPanel" hidden></div>
             <ul class="players" id="players"></ul>
@@ -408,7 +422,7 @@
         <section class="panel results" aria-label="Lineups">
             <div class="results-head">
                 <h2>Legal lineups</h2>
-                <span>highest total first</span>
+                <button class="pill-toggle" id="namesToggle" type="button" aria-pressed="false">Show names</button>
             </div>
             <div class="table-wrap">
                 <table>
@@ -423,6 +437,8 @@
     </main>
 
     <main class="setup-wrap" id="setupView" hidden></main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
     <div class="overlay" id="overlay" hidden>
         <div class="picker" role="dialog" aria-modal="true" aria-labelledby="pickerTitle">
@@ -475,7 +491,7 @@
                 const ids = new Set(players.map(p => p.id));
                 const m = d.match || {};
                 const played = (Array.isArray(m.played) ? m.played : []).filter(id => ids.has(id)).slice(0, TEAM_SIZE);
-                return { format: d.format, players, match: { on: !!m.on, played } };
+                return { format: d.format, players, match: { on: !!m.on, played }, showNames: d.showNames === true };
             } catch (_) {
                 return null;
             }
@@ -746,6 +762,10 @@
                 `<span class="stat">Out <b>${outCount}</b></span>` +
                 (note ? `<span class="note">${note}</span>` : '');
 
+            const namesBtn = $('namesToggle');
+            namesBtn.setAttribute('aria-pressed', String(app.showNames));
+            namesBtn.textContent = app.showNames ? 'Hide names' : 'Show names';
+
             $('lineups').innerHTML = n === 0
                 ? `<tr><td class="empty" colspan="7">No lineups match the current selection.</td></tr>`
                 : results.map((r, idx) => {
@@ -754,7 +774,8 @@
                     r.slots.forEach(sl => { for (let k = 0; k < sl.count; k++) cells.push(sl); });
                     cells.sort((a, b) => a.sl - b.sl);
                     return `<tr class="${totalClass(r.total)}"><td class="idx">${idx + 1}</td>` +
-                        cells.map(c => `<td${c.locked ? ' class="locked"' : ''}><span class="sl">${c.sl}</span><span class="nm">${c.names.map(esc).join('/<wbr>')}</span></td>`).join('') +
+                        cells.map(c => `<td${c.locked ? ' class="locked"' : ''}><span class="sl">${c.sl}</span>` +
+                            (app.showNames ? `<span class="nm">${c.names.map(esc).join('/<wbr>')}</span>` : '') + `</td>`).join('') +
                         `<td class="tot">${r.total}</td></tr>`;
                 }).join('');
 
@@ -905,7 +926,7 @@
                 const ids = new Set(players.map(p => p.id));
                 const match = app ? app.match : { on: false, played: [] };
                 match.played = match.played.filter(id => ids.has(id));
-                app = { format, players, match };
+                app = { format, players, match, showNames: app ? app.showNames : false };
                 save();
                 showPlan();
                 window.scrollTo(0, 0);
@@ -943,6 +964,87 @@
         $('pickerCancel').addEventListener('click', closePicker);
         document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !overlay.hidden) closePicker(); });
 
+        $('namesToggle').addEventListener('click', () => {
+            app.showNames = !app.showNames;
+            save(); refresh();
+        });
+
+        // ---------- Share roster as a link ----------
+        // The roster rides in the URL fragment (#roster=...), which browsers never send to the server.
+        // Payload: { v: 1, p: [[name, sl8|null, sl9|null], ...] } as base64url JSON.
+        function encodeRoster() {
+            const json = JSON.stringify({ v: 1, p: app.players.map(p => [p.name, p.sls[8], p.sls[9]]) });
+            const bytes = new TextEncoder().encode(json);
+            let bin = '';
+            bytes.forEach(b => { bin += String.fromCharCode(b); });
+            return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        }
+        function decodeRoster(code) {
+            try {
+                const bin = atob(code.replace(/-/g, '+').replace(/_/g, '/'));
+                const d = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0))));
+                if (!d || d.v !== 1 || !Array.isArray(d.p) || d.p.length < MIN_ROSTER || d.p.length > MAX_ROSTER) return null;
+                const players = d.p.map((row, i) => ({
+                    id: uid(),
+                    name: String((row && row[0]) || `Player ${i + 1}`).slice(0, 20),
+                    sls: { 8: cleanSL(row && row[1], '8'), 9: cleanSL(row && row[2], '9') },
+                    state: 'avail',
+                }));
+                if (players.some(p => p.sls[8] == null && p.sls[9] == null)) return null;
+                return players;
+            } catch (_) {
+                return null;
+            }
+        }
+
+        let toastTimer = null;
+        function toast(msg) {
+            const t = $('toast');
+            t.textContent = msg;
+            t.hidden = false;
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => { t.hidden = true; }, 2600);
+        }
+
+        $('shareRoster').addEventListener('click', async () => {
+            const url = `${location.origin}${location.pathname}#roster=${encodeRoster()}`;
+            if (navigator.share) {
+                try {
+                    await navigator.share({ title: 'APA Lineup Planner', text: 'Our team roster for the APA Lineup Planner', url });
+                } catch (_) { /* share sheet dismissed */ }
+                return;
+            }
+            try {
+                await navigator.clipboard.writeText(url);
+                toast('Roster link copied');
+            } catch (_) {
+                prompt('Copy this link to share your roster:', url);
+            }
+        });
+
+        // Returns true if a shared roster in the URL was loaded.
+        function importFromHash() {
+            const m = location.hash.match(/^#roster=([A-Za-z0-9_-]+)$/);
+            if (!m) return false;
+            history.replaceState(null, '', location.pathname + location.search);
+            const players = decodeRoster(m[1]);
+            if (!players) { toast("That roster link didn't work"); return false; }
+            const names = players.map(p => p.name).join(', ');
+            if (app && !confirm(`Replace your roster with the shared one?\n\n${names}`)) return false;
+            const rated = (fmt) => players.filter(p => p.sls[fmt] != null).length;
+            app = {
+                format: app ? app.format : (rated('9') > rated('8') ? '9' : '8'),
+                players,
+                match: { on: false, played: [] },
+                showNames: app ? app.showNames : false,
+            };
+            save();
+            toast(`Loaded ${players.length} players`);
+            return true;
+        }
+        window.addEventListener('hashchange', () => { if (importFromHash()) showPlan(); });
+
+        importFromHash();
         if (app) showPlan(); else openSetup();
 
         if ('serviceWorker' in navigator && location.protocol === 'https:') {

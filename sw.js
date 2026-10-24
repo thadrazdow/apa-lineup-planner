@@ -1,6 +1,6 @@
 // Offline support: serve the app from cache instantly, refresh the cache in the background.
 // Bump CACHE when adding files so old caches are cleared.
-const CACHE = 'apa-lineup-planner-v3';
+const CACHE = 'apa-lineup-planner-v4';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', (event) => {
