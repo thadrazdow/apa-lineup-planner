@@ -39,10 +39,12 @@
             --thumb-out-ink: #ffffff;
             --btn-bg: #2f80c8;
             --btn-ink: #ffffff;
-            --chip-bg: rgba(255,255,255,.65);
             --shadow: 0 1px 2px rgba(16,24,32,.06), 0 4px 16px rgba(16,24,32,.06);
 
-            --segH: 40px;
+            --trackH: 168px;
+            --thumbH: 40px;
+            --editH: 40px;
+            --gap: 6px;
         }
         @media (prefers-color-scheme: dark) {
             :root:not([data-theme="light"]) {
@@ -69,7 +71,6 @@
                 --thumb-out-ink: #ffecec;
                 --btn-bg: #2c6ca3;
                 --btn-ink: #ffffff;
-                --chip-bg: rgba(0,0,0,.22);
                 --shadow: 0 1px 2px rgba(0,0,0,.3);
             }
         }
@@ -97,7 +98,6 @@
             --thumb-out-ink: #ffecec;
             --btn-bg: #2c6ca3;
             --btn-ink: #ffffff;
-            --chip-bg: rgba(0,0,0,.22);
             --shadow: 0 1px 2px rgba(0,0,0,.3);
         }
         * { box-sizing: border-box; }
@@ -142,15 +142,18 @@
         .btn.secondary { background: var(--track-bg); color: var(--ink); border: 1px solid var(--line); }
         .btn.secondary[aria-pressed="true"] { background: var(--thumb-in-bg); color: var(--thumb-in-ink); border-color: transparent; }
 
-        /* Roster rows */
-        .players { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-        .prow {
-            display: grid; grid-template-columns: minmax(0, 1fr) 44px minmax(150px, 210px);
-            align-items: center; gap: 8px;
+        /* Roster: one vertical slider per player, side by side */
+        .players {
+            list-style: none; margin: 0; padding: 0;
+            display: grid; grid-template-columns: repeat(var(--n, 8), minmax(0, 72px)); justify-content: center; gap: var(--gap);
         }
-        .pname { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .prow { display: flex; flex-direction: column; align-items: stretch; min-width: 0; }
+        .pname {
+            font-size: 12px; font-weight: 600; text-align: center; margin-bottom: 4px;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
         .sl-edit {
-            height: var(--segH); padding: 0;
+            height: var(--editH); margin: 0 0 8px; padding: 0;
             display: flex; align-items: center; justify-content: center; gap: 2px;
             border: 1px solid var(--line); border-radius: 10px;
             background: var(--card); font-size: 18px; font-weight: 700;
@@ -161,46 +164,48 @@
         .sl-edit:active { background: var(--track-bg); }
 
         .seg {
-            position: relative; height: var(--segH);
-            display: grid; grid-template-columns: repeat(3, 1fr);
-            border-radius: 10px; background: var(--track-bg); border: 1px solid var(--line);
-            touch-action: pan-y; cursor: pointer; user-select: none; -webkit-user-select: none;
+            position: relative; height: var(--trackH);
+            border-radius: 12px; background: var(--track-bg); border: 1px solid var(--line);
+            touch-action: none; cursor: pointer; user-select: none; -webkit-user-select: none;
         }
-        .ghost {
+        .seg.locked { opacity: .4; }
+        .ghost, .thumb {
+            position: absolute; left: 2px; right: 2px; height: var(--thumbH);
             display: flex; align-items: center; justify-content: center;
-            font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .3px;
-            color: var(--muted); opacity: .55; pointer-events: none; white-space: nowrap;
+            font-size: 10px; text-transform: uppercase; letter-spacing: 0; white-space: nowrap; overflow: hidden;
+            pointer-events: none;
         }
-        .seg.locked .ghost.in { text-decoration: line-through; opacity: .3; }
+        .ghost { font-weight: 600; color: var(--muted); opacity: .5; }
+        .ghost.in { top: 2px; }
+        .ghost.avail { top: calc(50% - var(--thumbH) / 2); }
+        .ghost.out { bottom: 2px; }
         .thumb {
-            position: absolute; top: 2px; bottom: 2px; width: calc((100% - 4px) / 3); left: 2px;
-            border-radius: 8px; display: flex; align-items: center; justify-content: center;
-            font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: .3px;
-            transition: left .14s ease, background-color .14s ease;
-            box-shadow: 0 1px 3px rgba(0,0,0,.25); pointer-events: none;
+            top: 2px; border-radius: 9px; font-weight: 700; z-index: 1;
+            transition: top .12s ease, background-color .12s ease; box-shadow: 0 1px 3px rgba(0,0,0,.25);
         }
         .thumb.in { background: var(--thumb-in-bg); color: var(--thumb-in-ink); }
-        .thumb.avail { background: var(--thumb-avail-bg); color: var(--thumb-avail-ink); left: calc(2px + (100% - 4px) / 3); }
-        .thumb.out { background: var(--thumb-out-bg); color: var(--thumb-out-ink); left: calc(2px + (100% - 4px) * 2 / 3); }
+        .thumb.avail { background: var(--thumb-avail-bg); color: var(--thumb-avail-ink); top: calc(50% - var(--thumbH) / 2); }
+        .thumb.out { background: var(--thumb-out-bg); color: var(--thumb-out-ink); top: calc(100% - var(--thumbH) - 2px); }
+        @media (max-width: 599px) {
+            .ghost, .thumb { left: 1px; right: 1px; font-size: 9px; letter-spacing: -.3px; }
+        }
 
-        /* Match night */
+        /* Match night: each slider becomes a tall Put up button */
         .mctl { display: none; }
         .match-on .seg { display: none; }
-        .match-on .mctl { display: flex; align-items: center; gap: 6px; height: var(--segH); }
+        .match-on .mctl { display: flex; height: var(--trackH); }
         .match-on .sl-edit { pointer-events: none; border-style: dashed; }
         .match-on .sl-edit .caret { display: none; }
-        .putup {
-            flex: 1; height: 100%; border-radius: 10px; border: none;
-            background: var(--btn-bg); color: var(--btn-ink); font-weight: 700; font-size: 14px;
+        .mbtn {
+            flex: 1; border-radius: 12px; border: none; padding: 4px 2px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+            font-weight: 700; font-size: 11px; text-transform: uppercase; line-height: 1.2; text-align: center;
         }
-        .putup:disabled { background: var(--track-bg); color: var(--muted); border: 1px dashed var(--line); cursor: default; font-weight: 600; font-size: 13px; }
-        .tag {
-            flex: 1; height: 100%; display: flex; align-items: center; justify-content: center;
-            border-radius: 10px; font-size: 13px; font-weight: 600; color: var(--muted);
-            background: var(--track-bg);
-        }
-        .tag.played { background: var(--thumb-in-bg); color: var(--thumb-in-ink); }
-        .undo { height: 100%; border-radius: 10px; border: 1px solid var(--line); background: var(--card); padding: 0 10px; font-size: 13px; color: var(--muted); }
+        .mbtn.up { background: var(--btn-bg); color: var(--btn-ink); }
+        .mbtn.played { background: var(--thumb-in-bg); color: var(--thumb-in-ink); }
+        .mbtn.played b { font-size: 20px; }
+        .mbtn.played small { font-size: 10px; font-weight: 600; opacity: .8; text-transform: lowercase; }
+        .mbtn.off { background: var(--track-bg); color: var(--muted); border: 1px dashed var(--line); font-weight: 600; }
 
         .match {
             margin-bottom: 14px; padding: 12px; border-radius: 12px;
@@ -265,23 +270,22 @@
         /* Results */
         .results-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 10px; }
         .results-head span { font-size: 13px; color: var(--muted); }
-        .lineups { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
-        .lineup { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
-        .lineup:last-child { border-bottom: none; }
-        .ltot {
-            flex: 0 0 auto; width: 42px; height: 42px; border-radius: 10px; background: var(--chip-bg);
-            display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px;
-            font-variant-numeric: tabular-nums;
+        .table-wrap { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; font-variant-numeric: tabular-nums; }
+        th, td { padding: 6px 2px; text-align: center; vertical-align: middle; border-bottom: 1px solid var(--line); }
+        tbody tr:last-child td { border-bottom: none; }
+        th {
+            background-color: var(--head); color: var(--head-ink); font-weight: 700; font-size: 12px;
+            text-transform: uppercase; letter-spacing: .4px; position: sticky; top: 0; z-index: 2;
         }
-        .lslots { display: flex; flex-wrap: wrap; gap: 4px 5px; min-width: 0; }
-        .slot {
-            display: inline-flex; align-items: baseline; gap: 5px; padding: 3px 9px; max-width: 100%;
-            border-radius: 999px; background: var(--chip-bg); font-size: 13px; line-height: 1.35;
-        }
-        .slot b { font-size: 14px; font-variant-numeric: tabular-nums; }
-        .slot span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .slot.alt span { color: var(--muted); }
-        .slot.locked { box-shadow: inset 0 0 0 2px var(--thumb-in-bg); }
+        th.c-idx { width: 30px; }
+        th.c-tot { width: 46px; }
+        td.idx { color: var(--muted); font-size: 12px; }
+        td.tot { font-weight: 800; font-size: 17px; }
+        td .sl { display: block; font-size: 16px; font-weight: 600; line-height: 1.2; }
+        td .nm { display: block; font-size: 11px; color: var(--muted); line-height: 1.25; overflow-wrap: anywhere; }
+        td.locked .sl { text-decoration: underline 2px var(--thumb-in-bg); text-underline-offset: 3px; }
+        td.locked .nm { color: var(--ink); font-weight: 600; }
         .total-23 { background-color: var(--g23); }
         .total-22 { background-color: var(--g22); }
         .total-21 { background-color: var(--g21); }
@@ -328,8 +332,10 @@
         @media (max-width: 380px) {
             body { padding-left: max(8px, env(safe-area-inset-left)); padding-right: max(8px, env(safe-area-inset-right)); }
             .panel { padding-left: 10px; padding-right: 10px; }
-            .prow { grid-template-columns: minmax(0, 1fr) 40px 150px; gap: 6px; }
-            .ghost, .thumb { font-size: 10px; letter-spacing: 0; }
+            :root { --gap: 3px; --trackH: 156px; }
+            .ghost, .thumb { font-size: 8px; }
+            .pname { font-size: 10px; }
+            .sl-edit { font-size: 16px; }
             .sl-edit .caret { display: none; }
         }
 
@@ -337,16 +343,21 @@
             body { padding-top: max(24px, env(safe-area-inset-top)); }
             h1 { font-size: 26px; }
             .panel { padding: 18px; }
+            :root { --gap: 10px; --trackH: 180px; }
+            .ghost, .thumb { font-size: 11px; letter-spacing: .3px; }
+            .pname { font-size: 13px; }
         }
 
         /* Desktop: controls pinned left, results right */
         @media (min-width: 1024px) {
             body { padding: 32px 24px; }
             header { margin-bottom: 20px; }
-            .layout { grid-template-columns: minmax(460px, 520px) 1fr; gap: 20px; align-items: start; }
+            .layout { grid-template-columns: minmax(500px, 560px) 1fr; gap: 20px; align-items: start; }
+            :root { --gap: 8px; }
+            .ghost, .thumb { letter-spacing: 0; }
             .roster { position: sticky; top: 20px; }
             .results { max-height: calc(100vh - 40px); display: flex; flex-direction: column; position: sticky; top: 20px; }
-            .lineups { overflow: auto; flex: 1 1 auto; min-height: 120px; }
+            .table-wrap { overflow: auto; flex: 1 1 auto; min-height: 120px; }
             .summary { flex: 0 0 auto; }
         }
     </style>
@@ -381,7 +392,14 @@
                 <h2>Legal lineups</h2>
                 <span>highest total first</span>
             </div>
-            <ul class="lineups" id="lineups"></ul>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr><th class="c-idx">#</th><th>P1</th><th>P2</th><th>P3</th><th>P4</th><th>P5</th><th class="c-tot">Tot</th></tr>
+                    </thead>
+                    <tbody id="lineups"></tbody>
+                </table>
+            </div>
             <div class="summary" id="summary"></div>
         </section>
     </main>
@@ -538,6 +556,7 @@
         function buildRows() {
             const ul = $('players');
             ul.innerHTML = '';
+            ul.style.setProperty('--n', app.players.length);
             rows.length = 0;
             app.players.forEach((p, i) => {
                 const li = document.createElement('li');
@@ -546,7 +565,7 @@
                     `<span class="pname"></span>` +
                     `<button class="sl-edit" type="button"></button>` +
                     `<div class="seg" tabindex="0" role="slider" aria-valuemin="0" aria-valuemax="2">` +
-                    `<span class="ghost in">In</span><span class="ghost">Maybe</span><span class="ghost">Out</span>` +
+                    `<span class="ghost in">In</span><span class="ghost avail">Maybe</span><span class="ghost out">Out</span>` +
                     `<span class="thumb"></span></div>` +
                     `<div class="mctl"></div>`;
                 const name = li.querySelector('.pname');
@@ -558,38 +577,34 @@
                 name.title = p.name;
                 edit.addEventListener('click', () => { if (!app.match.on) openPicker(i); });
 
-                const applyX = (clientX) => {
+                const apply = (clientY) => {
                     const rect = seg.getBoundingClientRect();
-                    const frac = (clientX - rect.left) / rect.width;
-                    setState(i, frac < 1 / 3 ? 'in' : frac > 2 / 3 ? 'out' : 'avail');
+                    const frac = (clientY - rect.top) / rect.height;
+                    setState(i, frac < 0.34 ? 'in' : frac > 0.66 ? 'out' : 'avail');
                 };
-                // Tap picks a spot; a horizontal drag slides. A vertical swipe scrolls the page and changes nothing.
-                let start = null, sliding = false;
-                seg.addEventListener('pointerdown', (e) => { start = { x: e.clientX, y: e.clientY }; sliding = false; });
-                seg.addEventListener('pointermove', (e) => {
-                    if (!start) return;
-                    const dx = Math.abs(e.clientX - start.x), dy = Math.abs(e.clientY - start.y);
-                    if (!sliding && dx > 8 && dx > dy) {
-                        sliding = true;
-                        try { seg.setPointerCapture(e.pointerId); } catch (_) {}
-                    }
-                    if (sliding) applyX(e.clientX);
+                let dragging = false;
+                seg.addEventListener('pointerdown', (e) => {
+                    dragging = true;
+                    try { seg.setPointerCapture(e.pointerId); } catch (_) {}
+                    apply(e.clientY); e.preventDefault();
+                    seg.focus({ preventScroll: true });
                 });
-                seg.addEventListener('pointerup', (e) => { if (start) applyX(e.clientX); start = null; });
-                seg.addEventListener('pointercancel', () => { start = null; });
+                seg.addEventListener('pointermove', (e) => { if (dragging) apply(e.clientY); });
+                seg.addEventListener('pointerup', (e) => { dragging = false; try { seg.releasePointerCapture(e.pointerId); } catch (_) {} });
+                seg.addEventListener('pointercancel', () => { dragging = false; });
                 seg.addEventListener('keydown', (e) => {
                     const pos = STATE_ORDER.indexOf(app.players[i].state);
-                    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') setState(i, STATE_ORDER[Math.max(0, pos - 1)]);
-                    else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') setState(i, STATE_ORDER[Math.min(2, pos + 1)]);
+                    if (e.key === 'ArrowUp' || e.key === 'ArrowRight') setState(i, STATE_ORDER[Math.max(0, pos - 1)]);
+                    else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') setState(i, STATE_ORDER[Math.min(2, pos + 1)]);
                     else return;
                     e.preventDefault();
                 });
 
                 mctl.addEventListener('click', (e) => {
                     const id = app.players[i].id;
-                    if (e.target.closest('.putup')) {
+                    if (e.target.closest('.mbtn.up')) {
                         if (!app.match.played.includes(id) && app.match.played.length < TEAM_SIZE) app.match.played.push(id);
-                    } else if (e.target.closest('.undo')) {
+                    } else if (e.target.closest('.mbtn.played')) {
                         app.match.played = app.match.played.filter(x => x !== id);
                     } else return;
                     save(); refresh();
@@ -648,27 +663,29 @@
             toggle.textContent = matchOn ? 'End match' : 'Match night';
             toggle.setAttribute('aria-pressed', String(matchOn));
             $('legend').innerHTML = matchOn
-                ? 'Tap <b>Put up</b> as each player goes to the table. Only players who still leave room for a legal lineup can be put up.'
-                : 'Tap a skill level to change it. Slide or tap each player to <b>In</b> (definitely playing), <b>Maybe</b> or <b>Out</b>. A crossed-out <s>In</s> means locking them in would break the 23 cap.';
+                ? 'Tap <b>Put up</b> as each player goes to the table; tap a played player to undo. <b>No fit</b> means putting them up would break the 23 cap.'
+                : 'Tap a skill level to change it. Drag or tap a slider to mark each player <b>In</b> (definitely playing), <b>Maybe</b> or <b>Out</b>. A <b>greyed</b> slider can\'t be set to In &mdash; it would break the 23 cap.';
 
             rows.forEach((r, i) => {
                 const p = P[i];
                 const s = p.state;
                 r.thumb.className = `thumb ${s}`;
                 r.thumb.textContent = STATE_TEXT[s];
-                r.seg.classList.toggle('locked', s !== 'in' && !canBeIn[i]);
+                // grey the slider when this player can't be locked In under the cap
+                r.seg.classList.toggle('locked', s === 'avail' && !canBeIn[i]);
                 r.seg.setAttribute('aria-label', `${p.name}, skill level ${p.sl}`);
+                r.seg.setAttribute('aria-orientation', 'vertical');
                 r.seg.setAttribute('aria-valuenow', String(STATE_ORDER.indexOf(s)));
                 r.seg.setAttribute('aria-valuetext', STATE_TEXT[s]);
                 r.edit.innerHTML = `${p.sl} <span class="caret">&#9662;</span>`;
                 r.edit.setAttribute('aria-label', `${p.name} skill level ${p.sl}`);
                 if (matchOn) {
                     const pos = played.indexOf(p.id);
-                    if (pos >= 0) r.mctl.innerHTML = `<span class="tag played">#${pos + 1} played</span><button class="undo" type="button">Undo</button>`;
-                    else if (s === 'out') r.mctl.innerHTML = `<span class="tag">Out tonight</span>`;
-                    else if (played.length >= TEAM_SIZE) r.mctl.innerHTML = `<span class="tag">Sitting</span>`;
-                    else if (!canPutUp[i]) r.mctl.innerHTML = `<button class="putup" type="button" disabled>Won't fit</button>`;
-                    else r.mctl.innerHTML = `<button class="putup" type="button">Put up</button>`;
+                    if (pos >= 0) r.mctl.innerHTML = `<button class="mbtn played" type="button" aria-label="Undo ${esc(p.name)}"><b>#${pos + 1}</b><small>undo</small></button>`;
+                    else if (s === 'out') r.mctl.innerHTML = `<span class="mbtn off">Out</span>`;
+                    else if (played.length >= TEAM_SIZE) r.mctl.innerHTML = `<span class="mbtn off">Sit</span>`;
+                    else if (!canPutUp[i]) r.mctl.innerHTML = `<span class="mbtn off">No<br>fit</span>`;
+                    else r.mctl.innerHTML = `<button class="mbtn up" type="button" aria-label="Put up ${esc(p.name)}">Put<br>up</button>`;
                 }
             });
 
@@ -687,17 +704,16 @@
                 (note ? `<span class="note">${note}</span>` : '');
 
             $('lineups').innerHTML = n === 0
-                ? `<li class="empty">No lineups match the current selection.</li>`
-                : results.map(r =>
-                    `<li class="lineup ${totalClass(r.total)}"><span class="ltot" aria-label="Total ${r.total}">${r.total}</span><div class="lslots">` +
-                    r.slots.map(s => {
-                        const label = s.count > 1 ? Array(s.count).fill(s.sl).join(' + ') : s.sl;
-                        const names = s.names.map(esc).join(' / ');
-                        const alt = s.names.length > s.count;
-                        return `<span class="slot${s.locked ? ' locked' : ''}${alt ? ' alt' : ''}"><b>${label}</b><span>${alt && s.count > 1 ? 'from ' : ''}${names}</span></span>`;
-                    }).join('') +
-                    `</div></li>`
-                ).join('');
+                ? `<tr><td class="empty" colspan="7">No lineups match the current selection.</td></tr>`
+                : results.map((r, idx) => {
+                    // one cell per seat, lowest skill level first
+                    const cells = [];
+                    r.slots.forEach(sl => { for (let k = 0; k < sl.count; k++) cells.push(sl); });
+                    cells.sort((a, b) => a.sl - b.sl);
+                    return `<tr class="${totalClass(r.total)}"><td class="idx">${idx + 1}</td>` +
+                        cells.map(c => `<td${c.locked ? ' class="locked"' : ''}><span class="sl">${c.sl}</span><span class="nm">${c.names.map(esc).join('/<wbr>')}</span></td>`).join('') +
+                        `<td class="tot">${r.total}</td></tr>`;
+                }).join('');
 
             const totals = {};
             results.forEach(r => { totals[r.total] = (totals[r.total] || 0) + 1; });
