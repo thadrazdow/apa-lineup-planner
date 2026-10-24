@@ -132,6 +132,9 @@
             letter-spacing: .6px; color: var(--muted);
         }
         .panel-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px; }
+        .fmt.fmt-switch { margin: 0; flex: 0 1 200px; }
+        .fmt.fmt-switch button { padding: 6px 8px; }
+        .fmt button:disabled { opacity: .45; cursor: not-allowed; }
         .link { background: none; border: none; color: var(--head); font-weight: 600; font-size: 14px; padding: 6px 2px; }
 
         .btn {
@@ -311,13 +314,26 @@
         .fmt button { border: none; background: none; border-radius: 9px; padding: 9px; font-weight: 600; color: var(--muted); }
         .fmt button[aria-pressed="true"] { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.15); }
         .setup-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-        .setup-list li { display: grid; grid-template-columns: 22px minmax(0, 1fr) 84px 40px; gap: 8px; align-items: center; }
+        .setup-list li {
+            display: grid; grid-template-columns: 22px minmax(0, 1fr) minmax(0, 1fr) 44px; gap: 6px 8px; align-items: center;
+            grid-template-areas: "num name name remove" ". s8 s9 .";
+        }
+        .setup-list li + li { padding-top: 8px; border-top: 1px solid var(--line); }
+        .setup-list .num { grid-area: num; }
+        .setup-list .name { grid-area: name; }
+        .setup-list .sl[data-fmt="8"] { grid-area: s8; }
+        .setup-list .sl[data-fmt="9"] { grid-area: s9; }
+        .setup-list .remove { grid-area: remove; }
+        @media (min-width: 600px) {
+            .setup-list li { grid-template-columns: 22px minmax(0, 1fr) 132px 132px 44px; grid-template-areas: "num name s8 s9 remove"; }
+            .setup-list li + li { padding-top: 0; border-top: none; }
+        }
         .num { color: var(--muted); font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; }
         .setup-list input, .setup-list select {
             height: 44px; border-radius: 10px; border: 1px solid var(--line); background: var(--card);
             padding: 0 10px; font-size: 16px; width: 100%; min-width: 0;
         }
-        .setup-list select { font-weight: 600; }
+        .setup-list select { font-weight: 600; font-size: 15px; padding: 0 6px; }
         .remove { height: 44px; border-radius: 10px; border: 1px solid var(--line); background: none; color: var(--muted); font-size: 20px; line-height: 1; }
         .remove:hover:not(:disabled) { color: var(--thumb-out-bg); border-color: var(--thumb-out-bg); }
         .remove:disabled { opacity: .35; cursor: default; }
@@ -371,7 +387,9 @@
     <main class="layout" id="planView" hidden>
         <section class="panel roster" id="rosterPanel" aria-label="Roster">
             <div class="panel-head">
-                <h2>Roster &amp; availability</h2>
+                <div class="fmt fmt-switch" id="fmtSwitch" role="group" aria-label="Tonight's format">
+                    <button type="button" data-fmt="8">8-Ball</button><button type="button" data-fmt="9">9-Ball</button>
+                </div>
                 <button class="link" id="editRoster" type="button">Edit roster</button>
             </div>
             <div class="match" id="matchPanel" hidden></div>
@@ -432,18 +450,27 @@
         const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
         const range = (lo, hi) => Array.from({ length: hi - lo + 1 }, (_, k) => lo + k);
 
-        // Saved data: { format, players: [{ id, name, sl, state }], match: { on, played: [ids in order] } }
+        // Saved data: { format, players: [{ id, name, sls: { 8: SL|null, 9: SL|null }, state }], match: { on, played: [ids in order] } }
+        // format is tonight's format; a player with no SL for it sits out of the calculator.
+        function cleanSL(v, fmt) {
+            const n = parseInt(v, 10);
+            const f = FORMATS[fmt];
+            return Number.isFinite(n) ? clamp(n, f.min, f.max) : null;
+        }
         function load() {
             try {
                 const d = JSON.parse(localStorage.getItem(STORE_KEY));
                 if (!d || !FORMATS[d.format] || !Array.isArray(d.players)) return null;
-                const f = FORMATS[d.format];
-                const players = d.players.slice(0, MAX_ROSTER).map((p, i) => ({
-                    id: String(p.id || uid()),
-                    name: String(p.name || `Player ${i + 1}`).slice(0, 20),
-                    sl: clamp(parseInt(p.sl, 10) || f.min, f.min, f.max),
-                    state: STATE_ORDER.includes(p.state) ? p.state : 'avail',
-                }));
+                const players = d.players.slice(0, MAX_ROSTER).map((p, i) => {
+                    // older saves had a single sl for the saved format
+                    const raw = p.sls || { [d.format]: p.sl };
+                    return {
+                        id: String(p.id || uid()),
+                        name: String(p.name || `Player ${i + 1}`).slice(0, 20),
+                        sls: { 8: cleanSL(raw[8], '8'), 9: cleanSL(raw[9], '9') },
+                        state: STATE_ORDER.includes(p.state) ? p.state : 'avail',
+                    };
+                });
                 if (players.length < MIN_ROSTER) return null;
                 const ids = new Set(players.map(p => p.id));
                 const m = d.match || {};
@@ -459,6 +486,11 @@
 
         let app = load();
 
+        // Players who have a skill level in tonight's format; all lineup math runs on this list.
+        let act = [];
+        const SL = (p) => p.sls[app.format];
+        function activate() { act = app.players.filter(p => SL(p) != null); }
+
         function allIndexCombos(n, size) {
             const out = [];
             (function rec(start, acc) {
@@ -473,10 +505,10 @@
         // Players who must be in every lineup: marked In, plus anyone already put up tonight.
         function forcedIdx() {
             const forced = new Set();
-            app.players.forEach((p, i) => { if (p.state === 'in') forced.add(i); });
+            act.forEach((p, i) => { if (p.state === 'in') forced.add(i); });
             if (app.match.on) {
                 app.match.played.forEach(id => {
-                    const i = app.players.findIndex(p => p.id === id);
+                    const i = act.findIndex(p => p.id === id);
                     if (i >= 0) forced.add(i);
                 });
             }
@@ -488,10 +520,10 @@
         function feasible(forced) {
             if (forced.size > TEAM_SIZE) return false;
             let total = 0;
-            forced.forEach(i => { total += app.players[i].sl; });
-            const fillers = app.players
+            forced.forEach(i => { total += SL(act[i]); });
+            const fillers = act
                 .filter((p, i) => !forced.has(i) && p.state !== 'out')
-                .map(p => p.sl)
+                .map(SL)
                 .sort((a, b) => a - b);
             const k = TEAM_SIZE - forced.size;
             if (fillers.length < k) return false;
@@ -503,12 +535,12 @@
         // a slot either names one player who's in every version, or lists the
         // interchangeable players at that skill level.
         function slotsFor(group, forced) {
-            const P = app.players;
+            const P = act;
             const slots = [];
             for (const v of new Set(group.sls)) {
                 const need = group.sls.filter(x => x === v).length;
                 const members = new Set();
-                group.combos.forEach(c => c.forEach(i => { if (P[i].sl === v) members.add(i); }));
+                group.combos.forEach(c => c.forEach(i => { if (SL(P[i]) === v) members.add(i); }));
                 const fixed = [...members].filter(i => group.combos.every(c => c.includes(i)));
                 const flex = [...members].filter(i => !fixed.includes(i));
                 fixed.forEach(i => slots.push({ sl: v, count: 1, names: [P[i].name], locked: forced.has(i) }));
@@ -519,16 +551,16 @@
         }
 
         function compute() {
-            const P = app.players;
+            const P = act;
             const forced = forcedIdx();
             const groups = new Map();
             if (forced.size <= TEAM_SIZE) {
                 for (const combo of allIndexCombos(P.length, TEAM_SIZE)) {
                     if (combo.some(i => P[i].state === 'out' && !forced.has(i))) continue;
                     if ([...forced].some(i => !combo.includes(i))) continue;
-                    const total = combo.reduce((a, i) => a + P[i].sl, 0);
+                    const total = combo.reduce((a, i) => a + SL(P[i]), 0);
                     if (total > CAP) continue;
-                    const sls = combo.map(i => P[i].sl).sort((a, b) => b - a);
+                    const sls = combo.map(i => SL(P[i])).sort((a, b) => b - a);
                     const key = sls.join(',');
                     if (!groups.has(key)) groups.set(key, { key, sls, total, combos: [] });
                     groups.get(key).combos.push(combo);
@@ -550,15 +582,16 @@
 
         function setState(i, s) {
             if (s === 'in' && !canBeIn[i]) s = 'avail'; // can't lock In under the cap
-            if (app.players[i].state !== s) { app.players[i].state = s; save(); refresh(); }
+            if (act[i].state !== s) { act[i].state = s; save(); refresh(); }
         }
 
         function buildRows() {
             const ul = $('players');
+            activate();
             ul.innerHTML = '';
-            ul.style.setProperty('--n', app.players.length);
+            ul.style.setProperty('--n', act.length);
             rows.length = 0;
-            app.players.forEach((p, i) => {
+            act.forEach((p, i) => {
                 const li = document.createElement('li');
                 li.className = 'prow';
                 li.innerHTML =
@@ -593,7 +626,7 @@
                 seg.addEventListener('pointerup', (e) => { dragging = false; try { seg.releasePointerCapture(e.pointerId); } catch (_) {} });
                 seg.addEventListener('pointercancel', () => { dragging = false; });
                 seg.addEventListener('keydown', (e) => {
-                    const pos = STATE_ORDER.indexOf(app.players[i].state);
+                    const pos = STATE_ORDER.indexOf(act[i].state);
                     if (e.key === 'ArrowUp' || e.key === 'ArrowRight') setState(i, STATE_ORDER[Math.max(0, pos - 1)]);
                     else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') setState(i, STATE_ORDER[Math.min(2, pos + 1)]);
                     else return;
@@ -601,7 +634,7 @@
                 });
 
                 mctl.addEventListener('click', (e) => {
-                    const id = app.players[i].id;
+                    const id = act[i].id;
                     if (e.target.closest('.mbtn.up')) {
                         if (!app.match.played.includes(id) && app.match.played.length < TEAM_SIZE) app.match.played.push(id);
                     } else if (e.target.closest('.mbtn.played')) {
@@ -616,9 +649,9 @@
         }
 
         function renderMatchPanel(played) {
-            const P = app.players;
+            const P = act;
             const byId = Object.fromEntries(P.map(p => [p.id, p]));
-            const used = played.reduce((a, id) => a + byId[id].sl, 0);
+            const used = played.reduce((a, id) => a + SL(byId[id]), 0);
             const left = CAP - used;
             const spots = TEAM_SIZE - played.length;
             const eligible = P.filter((p, i) => !played.includes(p.id) && p.state !== 'out' && canPutUp[i]);
@@ -627,7 +660,7 @@
             else if (spots === 0) text = `Lineup complete &middot; <b>${used}</b> of ${CAP}`;
             else {
                 text = `<b>${used}</b> of ${CAP} used &middot; <b>${left}</b> left for ${spots} player${spots === 1 ? '' : 's'}`;
-                if (eligible.length) text += ` &middot; next can be up to <b>SL ${Math.max(...eligible.map(p => p.sl))}</b>`;
+                if (eligible.length) text += ` &middot; next can be up to <b>SL ${Math.max(...eligible.map(SL))}</b>`;
                 else text += ` &middot; <b>no one left fits</b>, undo a pick or change who's In`;
             }
             $('matchPanel').innerHTML =
@@ -636,7 +669,7 @@
                 range(0, TEAM_SIZE - 1).map(k => {
                     const p = byId[played[k]];
                     return p
-                        ? `<li class="filled"><b>${p.sl}</b><span>${esc(p.name)}</span></li>`
+                        ? `<li class="filled"><b>${SL(p)}</b><span>${esc(p.name)}</span></li>`
                         : `<li>${k + 1}</li>`;
                 }).join('') +
                 `</ol>` +
@@ -645,16 +678,25 @@
         }
 
         function refresh() {
-            const P = app.players;
+            const P = act;
             const { results, forced } = compute();
             canBeIn = P.map((_, i) => forced.has(i) || feasible(new Set([...forced, i])));
             // Unlike canBeIn, this also fails for In players when the forced group itself no longer fits.
             canPutUp = P.map((_, i) => feasible(new Set([...forced, i])));
+
             const matchOn = app.match.on;
             const played = matchOn ? app.match.played : [];
-
-            $('title').textContent = `APA ${FORMATS[app.format].label} Lineup Planner`;
-            $('info').innerHTML = `${P.length} players &nbsp;&middot;&nbsp; Cap <b>${CAP}</b> &nbsp;&middot;&nbsp; ${TEAM_SIZE} play per match`;
+            const fmtLabel = FORMATS[app.format].label;
+            const missing = app.players.length - P.length;
+            $('title').textContent = `APA ${fmtLabel} Lineup Planner`;
+            $('info').innerHTML = `${P.length} players` +
+                (missing ? ` (${missing} without a ${fmtLabel} SL)` : '') +
+                ` &nbsp;&middot;&nbsp; Cap <b>${CAP}</b> &nbsp;&middot;&nbsp; ${TEAM_SIZE} play per match`;
+            $('fmtSwitch').querySelectorAll('[data-fmt]').forEach(b => {
+                b.setAttribute('aria-pressed', String(b.dataset.fmt === app.format));
+                b.disabled = matchOn && b.dataset.fmt !== app.format;
+            });
+            $('fmtSwitch').title = matchOn ? 'End match night to switch formats' : '';
 
             $('rosterPanel').classList.toggle('match-on', matchOn);
             $('matchPanel').hidden = !matchOn;
@@ -673,12 +715,12 @@
                 r.thumb.textContent = STATE_TEXT[s];
                 // grey the slider when this player can't be locked In under the cap
                 r.seg.classList.toggle('locked', s === 'avail' && !canBeIn[i]);
-                r.seg.setAttribute('aria-label', `${p.name}, skill level ${p.sl}`);
+                r.seg.setAttribute('aria-label', `${p.name}, skill level ${SL(p)}`);
                 r.seg.setAttribute('aria-orientation', 'vertical');
                 r.seg.setAttribute('aria-valuenow', String(STATE_ORDER.indexOf(s)));
                 r.seg.setAttribute('aria-valuetext', STATE_TEXT[s]);
-                r.edit.innerHTML = `${p.sl} <span class="caret">&#9662;</span>`;
-                r.edit.setAttribute('aria-label', `${p.name} skill level ${p.sl}`);
+                r.edit.innerHTML = `${SL(p)} <span class="caret">&#9662;</span>`;
+                r.edit.setAttribute('aria-label', `${p.name} skill level ${SL(p)}`);
                 if (matchOn) {
                     const pos = played.indexOf(p.id);
                     if (pos >= 0) r.mctl.innerHTML = `<button class="mbtn played" type="button" aria-label="Undo ${esc(p.name)}"><b>#${pos + 1}</b><small>undo</small></button>`;
@@ -694,6 +736,7 @@
             const notOut = P.length - outCount;
             let note = '';
             if (forced.size > TEAM_SIZE) note = `Too many set to In (max ${TEAM_SIZE})`;
+            else if (P.length < TEAM_SIZE) note = `Only ${P.length} player${P.length === 1 ? ' has' : 's have'} a ${fmtLabel} skill level &mdash; add more in Edit roster`;
             else if (notOut < TEAM_SIZE) note = `Need ${TEAM_SIZE} available (have ${notOut})`;
             const n = results.length;
             $('status').innerHTML =
@@ -746,6 +789,15 @@
 
         $('editRoster').addEventListener('click', () => openSetup());
 
+        $('fmtSwitch').addEventListener('click', (e) => {
+            const b = e.target.closest('[data-fmt]');
+            if (!b || b.disabled || b.dataset.fmt === app.format) return;
+            app.format = b.dataset.fmt;
+            save();
+            buildRows();
+            refresh();
+        });
+
         function showPlan() {
             $('setupView').hidden = true;
             $('planView').hidden = false;
@@ -758,8 +810,8 @@
 
         function openSetup() {
             draft = app
-                ? { format: app.format, players: app.players.map(p => ({ id: p.id, name: p.name, sl: p.sl })) }
-                : { format: '8', players: range(1, MIN_ROSTER).map(() => ({ id: uid(), name: '', sl: 3 })) };
+                ? { players: app.players.map(p => ({ id: p.id, name: p.name, sls: { ...p.sls } })) }
+                : { players: range(1, MIN_ROSTER).map(() => ({ id: uid(), name: '', sls: { 8: null, 9: null } })) };
             $('planView').hidden = true;
             $('setupView').hidden = false;
             $('title').textContent = app ? `APA ${FORMATS[app.format].label} Lineup Planner` : 'APA Lineup Planner';
@@ -769,22 +821,23 @@
         }
 
         function renderSetup(focusLast) {
-            const f = FORMATS[draft.format];
             const first = !app;
+            const slSelect = (p, i, fmt) => {
+                const f = FORMATS[fmt];
+                return `<select class="sl" data-fmt="${fmt}" aria-label="Player ${i + 1} ${f.label} skill level">` +
+                    `<option value=""${p.sls[fmt] == null ? ' selected' : ''}>No ${f.label}</option>` +
+                    range(f.min, f.max).map(v => `<option value="${v}"${v === p.sls[fmt] ? ' selected' : ''}>${f.label} SL ${v}</option>`).join('') +
+                    `</select>`;
+            };
             $('setupView').innerHTML =
                 `<section class="panel setup">` +
                 `<h2>${first ? 'Set up your team' : 'Edit roster'}</h2>` +
-                (first ? `<p class="hint">Add your players and their skill levels. It's saved on this device, so you only do this once.</p>` : '<p class="hint">Changes to skill levels and names are kept on this device.</p>') +
-                `<div class="fmt" role="group" aria-label="Format">` +
-                Object.entries(FORMATS).map(([k, v]) => `<button type="button" data-fmt="${k}" aria-pressed="${k === draft.format}">${v.label}</button>`).join('') +
-                `</div>` +
+                `<p class="hint">${first ? 'Add your players with their 8-ball and 9-ball skill levels. Choose &ldquo;No&rdquo; for a format they don&rsquo;t play. It&rsquo;s saved on this device, so you only do this once.' : 'Players keep separate 8-ball and 9-ball skill levels. Changes are saved on this device.'}</p>` +
                 `<ol class="setup-list">` +
                 draft.players.map((p, i) =>
                     `<li data-i="${i}"><span class="num">${i + 1}</span>` +
                     `<input class="name" type="text" maxlength="20" autocomplete="off" autocapitalize="words" enterkeyhint="next" placeholder="Player ${i + 1}" value="${esc(p.name)}" aria-label="Player ${i + 1} name">` +
-                    `<select class="sl" aria-label="Player ${i + 1} skill level">` +
-                    range(f.min, f.max).map(v => `<option value="${v}"${v === p.sl ? ' selected' : ''}>SL ${v}</option>`).join('') +
-                    `</select>` +
+                    slSelect(p, i, '8') + slSelect(p, i, '9') +
                     `<button type="button" class="remove" aria-label="Remove player ${i + 1}"${draft.players.length <= 1 ? ' disabled' : ''}>&times;</button></li>`
                 ).join('') +
                 `</ol>` +
@@ -807,7 +860,9 @@
         });
         $('setupView').addEventListener('change', (e) => {
             const li = e.target.closest('li[data-i]');
-            if (li && e.target.classList.contains('sl')) draft.players[+li.dataset.i].sl = +e.target.value;
+            if (li && e.target.classList.contains('sl')) {
+                draft.players[+li.dataset.i].sls[e.target.dataset.fmt] = e.target.value === '' ? null : +e.target.value;
+            }
         });
         $('setupView').addEventListener('keydown', (e) => {
             if (e.key !== 'Enter' || !e.target.classList.contains('name')) return;
@@ -818,17 +873,11 @@
         });
         $('setupView').addEventListener('click', (e) => {
             const t = e.target;
-            if (t.closest('[data-fmt]')) {
-                draft.format = t.closest('[data-fmt]').dataset.fmt;
-                const f = FORMATS[draft.format];
-                draft.players.forEach(p => { p.sl = clamp(p.sl, f.min, f.max); });
-                renderSetup();
-            } else if (t.closest('.remove')) {
+            if (t.closest('.remove')) {
                 draft.players.splice(+t.closest('li').dataset.i, 1);
                 renderSetup();
             } else if (t.closest('.add')) {
-                const f = FORMATS[draft.format];
-                draft.players.push({ id: uid(), name: '', sl: clamp(3, f.min, f.max) });
+                draft.players.push({ id: uid(), name: '', sls: { 8: null, 9: null } });
                 renderSetup(true);
             } else if (t.closest('.cancel')) {
                 showPlan();
@@ -837,17 +886,26 @@
                     $('setupWarn').textContent = `Add at least ${MIN_ROSTER} players to build a lineup.`;
                     return;
                 }
+                const unrated = draft.players.findIndex(d => d.sls[8] == null && d.sls[9] == null);
+                if (unrated >= 0) {
+                    const d = draft.players[unrated];
+                    $('setupWarn').textContent = `Give ${d.name.trim() || `Player ${unrated + 1}`} an 8-ball or 9-ball skill level.`;
+                    return;
+                }
                 const old = app ? Object.fromEntries(app.players.map(p => [p.id, p])) : {};
                 const players = draft.players.map((d, i) => ({
                     id: d.id,
                     name: d.name.trim() || `Player ${i + 1}`,
-                    sl: d.sl,
+                    sls: { ...d.sls },
                     state: old[d.id] ? old[d.id].state : 'avail',
                 }));
+                // first time: start on whichever format more players have a rating for
+                const rated = (fmt) => players.filter(p => p.sls[fmt] != null).length;
+                const format = app ? app.format : (rated('9') > rated('8') ? '9' : '8');
                 const ids = new Set(players.map(p => p.id));
                 const match = app ? app.match : { on: false, played: [] };
                 match.played = match.played.filter(id => ids.has(id));
-                app = { format: draft.format, players, match };
+                app = { format, players, match };
                 save();
                 showPlan();
                 window.scrollTo(0, 0);
@@ -862,10 +920,10 @@
         function openPicker(i) {
             editIndex = i;
             const f = FORMATS[app.format];
-            const p = app.players[i];
-            $('pickerTitle').textContent = `${p.name} — skill level`;
+            const p = act[i];
+            $('pickerTitle').textContent = `${p.name} — ${f.label} skill level`;
             pickerGrid.innerHTML = range(f.min, f.max)
-                .map(v => `<button type="button" class="pick${v === p.sl ? ' sel' : ''}" data-v="${v}">${v}</button>`).join('');
+                .map(v => `<button type="button" class="pick${v === SL(p) ? ' sel' : ''}" data-v="${v}">${v}</button>`).join('');
             overlay.hidden = false;
             (pickerGrid.querySelector('.sel') || pickerGrid.firstChild).focus({ preventScroll: true });
         }
@@ -877,7 +935,7 @@
         pickerGrid.addEventListener('click', (e) => {
             const b = e.target.closest('.pick');
             if (!b || editIndex === null) return;
-            app.players[editIndex].sl = +b.dataset.v;
+            act[editIndex].sls[app.format] = +b.dataset.v;
             save(); refresh();
             closePicker();
         });
