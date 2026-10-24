@@ -4,9 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>APA Lineup Planner</title>
-    <meta name="description" content="Plan legal APA 8-ball lineups under the 23-point skill level cap.">
+    <meta name="description" content="Plan legal APA 8-ball and 9-ball lineups under the 23-point skill level cap.">
     <meta name="theme-color" content="#f3f5f7" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#121518" media="(prefers-color-scheme: dark)">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Lineups">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='%23111'/%3E%3Ccircle cx='50' cy='50' r='22' fill='%23fff'/%3E%3Ctext x='50' y='60' font-family='Arial' font-weight='bold' font-size='28' text-anchor='middle' fill='%23111'%3E8%3C/text%3E%3C/svg%3E">
     <style>
         :root {
@@ -33,12 +39,10 @@
             --thumb-out-ink: #ffffff;
             --btn-bg: #2f80c8;
             --btn-ink: #ffffff;
+            --chip-bg: rgba(255,255,255,.65);
             --shadow: 0 1px 2px rgba(16,24,32,.06), 0 4px 16px rgba(16,24,32,.06);
 
-            --trackH: 168px;
-            --thumbH: 40px;
-            --editH: 40px;
-            --gap: 6px;
+            --segH: 40px;
         }
         @media (prefers-color-scheme: dark) {
             :root:not([data-theme="light"]) {
@@ -65,6 +69,7 @@
                 --thumb-out-ink: #ffecec;
                 --btn-bg: #2c6ca3;
                 --btn-ink: #ffffff;
+                --chip-bg: rgba(0,0,0,.22);
                 --shadow: 0 1px 2px rgba(0,0,0,.3);
             }
         }
@@ -92,20 +97,24 @@
             --thumb-out-ink: #ffecec;
             --btn-bg: #2c6ca3;
             --btn-ink: #ffffff;
+            --chip-bg: rgba(0,0,0,.22);
             --shadow: 0 1px 2px rgba(0,0,0,.3);
         }
         * { box-sizing: border-box; }
+        [hidden] { display: none !important; }
         html { -webkit-text-size-adjust: 100%; }
         body {
             font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             margin: 0;
-            padding: 16px max(12px, env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+            padding: max(16px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
             background-color: var(--bg);
             color: var(--ink);
             font-size: 15px;
             line-height: 1.4;
         }
-        button { font: inherit; -webkit-tap-highlight-color: transparent; }
+        button, input, select { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent; }
+        button { cursor: pointer; }
+        :focus-visible { outline: 2px solid var(--head); outline-offset: 2px; }
 
         header { text-align: center; margin: 0 auto 14px; max-width: 1100px; }
         h1 { margin: 0 0 4px; font-size: 22px; letter-spacing: -.2px; }
@@ -119,84 +128,125 @@
             min-width: 0;
         }
         .panel h2 {
-            margin: 0 0 12px; font-size: 13px; font-weight: 700; text-transform: uppercase;
+            margin: 0; font-size: 13px; font-weight: 700; text-transform: uppercase;
             letter-spacing: .6px; color: var(--muted);
         }
+        .panel-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px; }
+        .link { background: none; border: none; color: var(--head); font-weight: 600; font-size: 14px; padding: 6px 2px; }
 
-        /* Roster sliders */
-        .chips { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: var(--gap); }
-        .slider { display: flex; flex-direction: column; align-items: stretch; min-width: 0; }
+        .btn {
+            background: var(--btn-bg); color: var(--btn-ink); border: none; border-radius: 10px;
+            padding: 10px 16px; font-size: 15px; font-weight: 600; min-height: 44px;
+        }
+        .btn:hover { filter: brightness(1.08); }
+        .btn.secondary { background: var(--track-bg); color: var(--ink); border: 1px solid var(--line); }
+        .btn.secondary[aria-pressed="true"] { background: var(--thumb-in-bg); color: var(--thumb-in-ink); border-color: transparent; }
+
+        /* Roster rows */
+        .players { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+        .prow {
+            display: grid; grid-template-columns: minmax(0, 1fr) 44px minmax(150px, 210px);
+            align-items: center; gap: 8px;
+        }
+        .pname { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .sl-edit {
-            height: var(--editH); margin: 0 0 8px; padding: 0;
+            height: var(--segH); padding: 0;
             display: flex; align-items: center; justify-content: center; gap: 2px;
             border: 1px solid var(--line); border-radius: 10px;
-            background: var(--card); color: var(--ink); font-size: 18px; font-weight: 700;
-            cursor: pointer; user-select: none; -webkit-user-select: none;
+            background: var(--card); font-size: 18px; font-weight: 700;
+            user-select: none; -webkit-user-select: none;
         }
         .sl-edit .caret { font-size: 9px; color: var(--muted); font-weight: normal; }
         .sl-edit:hover { border-color: var(--head); }
         .sl-edit:active { background: var(--track-bg); }
-        .track {
-            position: relative; height: var(--trackH); width: 100%;
-            border-radius: 12px; background: var(--track-bg);
-            border: 1px solid var(--line);
-            touch-action: none; cursor: pointer; outline: none;
-        }
-        .track:focus-visible, .sl-edit:focus-visible, .reset:focus-visible, .pick:focus-visible {
-            outline: 2px solid var(--head); outline-offset: 2px;
+
+        .seg {
+            position: relative; height: var(--segH);
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            border-radius: 10px; background: var(--track-bg); border: 1px solid var(--line);
+            touch-action: pan-y; cursor: pointer; user-select: none; -webkit-user-select: none;
         }
         .ghost {
-            position: absolute; left: 2px; right: 2px; height: var(--thumbH);
             display: flex; align-items: center; justify-content: center;
-            font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0;
-            color: var(--muted); opacity: .5; pointer-events: none; white-space: nowrap; overflow: hidden;
+            font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .3px;
+            color: var(--muted); opacity: .55; pointer-events: none; white-space: nowrap;
         }
-        .ghost.in { top: 2px; }
-        .ghost.avail { top: calc(50% - var(--thumbH) / 2); }
-        .ghost.out { bottom: 2px; }
+        .seg.locked .ghost.in { text-decoration: line-through; opacity: .3; }
         .thumb {
-            position: absolute; left: 2px; right: 2px; height: var(--thumbH);
-            border-radius: 9px; display: flex; align-items: center; justify-content: center;
-            font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0;
-            transition: top .12s ease, background-color .12s ease; z-index: 1;
-            box-shadow: 0 1px 3px rgba(0,0,0,.25); overflow: hidden; white-space: nowrap;
+            position: absolute; top: 2px; bottom: 2px; width: calc((100% - 4px) / 3); left: 2px;
+            border-radius: 8px; display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: .3px;
+            transition: left .14s ease, background-color .14s ease;
+            box-shadow: 0 1px 3px rgba(0,0,0,.25); pointer-events: none;
         }
         .thumb.in { background: var(--thumb-in-bg); color: var(--thumb-in-ink); }
-        .thumb.avail { background: var(--thumb-avail-bg); color: var(--thumb-avail-ink); }
-        .thumb.out { background: var(--thumb-out-bg); color: var(--thumb-out-ink); }
-        .track.locked { opacity: .4; }
-        @media (max-width: 599px) {
-            .thumb, .ghost { left: 1px; right: 1px; font-size: 9px; letter-spacing: -.3px; }
+        .thumb.avail { background: var(--thumb-avail-bg); color: var(--thumb-avail-ink); left: calc(2px + (100% - 4px) / 3); }
+        .thumb.out { background: var(--thumb-out-bg); color: var(--thumb-out-ink); left: calc(2px + (100% - 4px) * 2 / 3); }
+
+        /* Match night */
+        .mctl { display: none; }
+        .match-on .seg { display: none; }
+        .match-on .mctl { display: flex; align-items: center; gap: 6px; height: var(--segH); }
+        .match-on .sl-edit { pointer-events: none; border-style: dashed; }
+        .match-on .sl-edit .caret { display: none; }
+        .putup {
+            flex: 1; height: 100%; border-radius: 10px; border: none;
+            background: var(--btn-bg); color: var(--btn-ink); font-weight: 700; font-size: 14px;
         }
+        .putup:disabled { background: var(--track-bg); color: var(--muted); border: 1px dashed var(--line); cursor: default; font-weight: 600; font-size: 13px; }
+        .tag {
+            flex: 1; height: 100%; display: flex; align-items: center; justify-content: center;
+            border-radius: 10px; font-size: 13px; font-weight: 600; color: var(--muted);
+            background: var(--track-bg);
+        }
+        .tag.played { background: var(--thumb-in-bg); color: var(--thumb-in-ink); }
+        .undo { height: 100%; border-radius: 10px; border: 1px solid var(--line); background: var(--card); padding: 0 10px; font-size: 13px; color: var(--muted); }
+
+        .match {
+            margin-bottom: 14px; padding: 12px; border-radius: 12px;
+            background: var(--summary-bg); border: 1px solid var(--line);
+        }
+        .match-title { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+        .match-title b { font-size: 15px; }
+        .match-title span { font-size: 13px; color: var(--muted); }
+        .order { list-style: none; margin: 0 0 10px; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+        .order li {
+            height: 52px; border-radius: 10px; border: 1px dashed var(--line); background: var(--card);
+            display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; padding: 0 4px;
+            color: var(--muted); font-size: 12px;
+        }
+        .order li.filled { border-style: solid; border-color: transparent; background: var(--thumb-in-bg); color: var(--thumb-in-ink); }
+        .order li b { font-size: 17px; line-height: 1.1; }
+        .order li span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+        .capbar { height: 8px; border-radius: 99px; background: var(--card); border: 1px solid var(--line); overflow: hidden; }
+        .capbar i { display: block; height: 100%; background: var(--thumb-in-bg); transition: width .2s ease; }
+        .captext { font-size: 13px; color: var(--muted); margin-top: 8px; }
+        .captext b { color: var(--ink); }
 
         .legend { font-size: 13px; color: var(--muted); margin: 14px 0 0; line-height: 1.5; }
         .legend b { color: var(--ink); }
+        .legend s { color: var(--ink); }
 
         .controls {
             display: flex; justify-content: space-between; align-items: center; gap: 10px;
             margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); flex-wrap: wrap;
         }
-        .status { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; min-width: 0; }
+        .status { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 220px; min-width: 0; }
         .stat {
             display: inline-flex; align-items: baseline; gap: 5px; padding: 5px 10px;
             border-radius: 999px; background: var(--track-bg); font-size: 13px; color: var(--muted);
         }
         .stat b { color: var(--ink); font-size: 15px; }
-        .stat.lineups { background: var(--head); color: var(--head-ink); }
-        .stat.lineups b { color: var(--head-ink); }
+        .stat.count { background: var(--head); color: var(--head-ink); }
+        .stat.count b { color: var(--head-ink); }
         .note { flex-basis: 100%; font-size: 13px; color: var(--thumb-out-bg); font-weight: 600; }
-        .reset {
-            background: var(--btn-bg); color: var(--btn-ink); border: none; border-radius: 10px;
-            padding: 10px 18px; font-size: 15px; font-weight: 600; cursor: pointer; min-height: 44px;
-        }
-        .reset:hover { filter: brightness(1.08); }
+        .actions { display: flex; gap: 8px; }
 
         /* Picker */
         .overlay {
             position: fixed; inset: 0; background: rgba(0,0,0,.45);
             display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px;
         }
-        .overlay[hidden] { display: none; }
         .picker {
             background: var(--card); color: var(--ink); border-radius: 16px; padding: 18px;
             width: min(320px, 100%); text-align: center; box-shadow: 0 8px 28px rgba(0,0,0,.35);
@@ -206,26 +256,32 @@
         .pick {
             padding: 16px 0; font-size: 22px; font-weight: 700;
             border: 1px solid var(--line); border-radius: 12px;
-            background: var(--track-bg); color: var(--ink); cursor: pointer;
+            background: var(--track-bg);
         }
         .pick:hover { border-color: var(--head); }
         .pick.sel { background: var(--thumb-in-bg); color: var(--thumb-in-ink); border-color: transparent; }
-        .picker .cancel { margin-top: 12px; font-size: 15px; color: var(--muted); background: none; border: none; cursor: pointer; padding: 10px 16px; }
+        .picker .cancel { margin-top: 12px; font-size: 15px; color: var(--muted); background: none; border: none; padding: 10px 16px; }
 
         /* Results */
         .results-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 10px; }
-        .results-head h2 { margin: 0; }
         .results-head span { font-size: 13px; color: var(--muted); }
-        .table-wrap { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
-        table { width: 100%; border-collapse: collapse; font-size: 15px; font-variant-numeric: tabular-nums; }
-        th, td { padding: 8px 2px; text-align: center; border-bottom: 1px solid var(--line); }
-        tbody tr:last-child td { border-bottom: none; }
-        th {
-            background-color: var(--head); color: var(--head-ink); font-weight: 700; font-size: 12px;
-            text-transform: uppercase; letter-spacing: .4px; position: sticky; top: 0; z-index: 2;
+        .lineups { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+        .lineup { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+        .lineup:last-child { border-bottom: none; }
+        .ltot {
+            flex: 0 0 auto; width: 42px; height: 42px; border-radius: 10px; background: var(--chip-bg);
+            display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px;
+            font-variant-numeric: tabular-nums;
         }
-        td.idx { color: var(--muted); font-size: 12px; }
-        td.tot { font-weight: 800; font-size: 16px; }
+        .lslots { display: flex; flex-wrap: wrap; gap: 4px 5px; min-width: 0; }
+        .slot {
+            display: inline-flex; align-items: baseline; gap: 5px; padding: 3px 9px; max-width: 100%;
+            border-radius: 999px; background: var(--chip-bg); font-size: 13px; line-height: 1.35;
+        }
+        .slot b { font-size: 14px; font-variant-numeric: tabular-nums; }
+        .slot span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .slot.alt span { color: var(--muted); }
+        .slot.locked { box-shadow: inset 0 0 0 2px var(--thumb-in-bg); }
         .total-23 { background-color: var(--g23); }
         .total-22 { background-color: var(--g22); }
         .total-21 { background-color: var(--g21); }
@@ -242,57 +298,81 @@
             border-radius: 999px; border: 1px solid var(--line); font-size: 13px; background: var(--card);
         }
         .tchip .swatch { width: 22px; height: 18px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; border: 1px solid var(--line); }
-        .tchip b { font-weight: 700; }
+
+        /* Roster setup */
+        .setup-wrap { max-width: 560px; margin: 0 auto; }
+        .setup h2 { margin-bottom: 8px; }
+        .hint { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
+        .fmt { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 3px; border-radius: 12px; background: var(--track-bg); border: 1px solid var(--line); margin-bottom: 14px; }
+        .fmt button { border: none; background: none; border-radius: 9px; padding: 9px; font-weight: 600; color: var(--muted); }
+        .fmt button[aria-pressed="true"] { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+        .setup-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+        .setup-list li { display: grid; grid-template-columns: 22px minmax(0, 1fr) 84px 40px; gap: 8px; align-items: center; }
+        .num { color: var(--muted); font-size: 13px; text-align: right; font-variant-numeric: tabular-nums; }
+        .setup-list input, .setup-list select {
+            height: 44px; border-radius: 10px; border: 1px solid var(--line); background: var(--card);
+            padding: 0 10px; font-size: 16px; width: 100%; min-width: 0;
+        }
+        .setup-list select { font-weight: 600; }
+        .remove { height: 44px; border-radius: 10px; border: 1px solid var(--line); background: none; color: var(--muted); font-size: 20px; line-height: 1; }
+        .remove:hover:not(:disabled) { color: var(--thumb-out-bg); border-color: var(--thumb-out-bg); }
+        .remove:disabled { opacity: .35; cursor: default; }
+        .add { margin-top: 10px; width: 100%; height: 44px; border-radius: 10px; border: 1px dashed var(--line); background: none; color: var(--head); font-weight: 600; }
+        .warn { color: var(--thumb-out-bg); font-weight: 600; font-size: 14px; margin: 10px 0 0; min-height: 0; }
+        .warn:empty { display: none; }
+        .setup-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+        .setup-actions .btn { min-width: 120px; }
+        .storage-note { margin: 12px 0 0; font-size: 12px; color: var(--muted); text-align: right; }
 
         /* Small phones */
         @media (max-width: 380px) {
-            :root { --gap: 3px; --trackH: 156px; }
             body { padding-left: max(8px, env(safe-area-inset-left)); padding-right: max(8px, env(safe-area-inset-right)); }
-            .roster { padding-left: 8px; padding-right: 8px; }
-            .thumb, .ghost { font-size: 8px; }
-            .sl-edit { font-size: 16px; }
+            .panel { padding-left: 10px; padding-right: 10px; }
+            .prow { grid-template-columns: minmax(0, 1fr) 40px 150px; gap: 6px; }
+            .ghost, .thumb { font-size: 10px; letter-spacing: 0; }
             .sl-edit .caret { display: none; }
         }
 
-        /* Tablet and up */
         @media (min-width: 600px) {
-            body { padding-top: 24px; }
+            body { padding-top: max(24px, env(safe-area-inset-top)); }
             h1 { font-size: 26px; }
             .panel { padding: 18px; }
-            :root { --gap: 10px; --trackH: 180px; }
-            .thumb { font-size: 11px; letter-spacing: .3px; }
         }
 
         /* Desktop: controls pinned left, results right */
         @media (min-width: 1024px) {
             body { padding: 32px 24px; }
             header { margin-bottom: 20px; }
-            .layout { grid-template-columns: minmax(500px, 560px) 1fr; gap: 20px; align-items: start; }
-            :root { --gap: 8px; }
-            .thumb { letter-spacing: 0; }
+            .layout { grid-template-columns: minmax(460px, 520px) 1fr; gap: 20px; align-items: start; }
             .roster { position: sticky; top: 20px; }
             .results { max-height: calc(100vh - 40px); display: flex; flex-direction: column; position: sticky; top: 20px; }
-            .table-wrap { overflow: auto; flex: 1 1 auto; min-height: 120px; }
+            .lineups { overflow: auto; flex: 1 1 auto; min-height: 120px; }
             .summary { flex: 0 0 auto; }
-            tbody tr:hover td { filter: brightness(.96); }
         }
     </style>
 </head>
 <body>
     <header>
-        <h1>APA 8-Ball Lineup Planner</h1>
-        <div class="info">Roster <b id="rosterList"></b> &nbsp;&middot;&nbsp; Cap <b>23</b> &nbsp;&middot;&nbsp; 5 play per match</div>
+        <h1 id="title">APA Lineup Planner</h1>
+        <div class="info" id="info"></div>
     </header>
 
-    <main class="layout">
-        <section class="panel roster" aria-label="Roster">
-            <h2>Roster &amp; availability</h2>
-            <div class="chips" id="chips"></div>
-            <p class="legend">Tap a skill level to change it. Drag or tap a slider to mark each player <b>In</b> (definitely playing), <b>Maybe</b> or <b>Out</b>. A <b>greyed</b> slider can't be set to In &mdash; it would break the 23 cap.</p>
+    <main class="layout" id="planView" hidden>
+        <section class="panel roster" id="rosterPanel" aria-label="Roster">
+            <div class="panel-head">
+                <h2>Roster &amp; availability</h2>
+                <button class="link" id="editRoster" type="button">Edit roster</button>
+            </div>
+            <div class="match" id="matchPanel" hidden></div>
+            <ul class="players" id="players"></ul>
+            <p class="legend" id="legend"></p>
 
             <div class="controls">
                 <div class="status" id="status" aria-live="polite"></div>
-                <button class="reset" id="reset">Reset</button>
+                <div class="actions">
+                    <button class="btn secondary" id="matchToggle" type="button" aria-pressed="false">Match night</button>
+                    <button class="btn" id="reset" type="button">Reset</button>
+                </div>
             </div>
         </section>
 
@@ -301,59 +381,65 @@
                 <h2>Legal lineups</h2>
                 <span>highest total first</span>
             </div>
-            <div class="table-wrap">
-                <table>
-                    <thead>
-                        <tr><th>#</th><th>P1</th><th>P2</th><th>P3</th><th>P4</th><th>P5</th><th>Tot</th></tr>
-                    </thead>
-                    <tbody id="combinations"></tbody>
-                </table>
-            </div>
-
+            <ul class="lineups" id="lineups"></ul>
             <div class="summary" id="summary"></div>
         </section>
     </main>
+
+    <main class="setup-wrap" id="setupView" hidden></main>
 
     <div class="overlay" id="overlay" hidden>
         <div class="picker" role="dialog" aria-modal="true" aria-labelledby="pickerTitle">
             <h4 id="pickerTitle">Set skill level</h4>
             <div class="grid" id="pickerGrid"></div>
-            <button class="cancel" id="pickerCancel">Cancel</button>
+            <button class="cancel" id="pickerCancel" type="button">Cancel</button>
         </div>
     </div>
 
     <script>
-        const players = [7, 6, 5, 5, 4, 3, 2, 2];
-        const cap = 23;
-        const teamSize = 5;
-        const SL_MIN = 2, SL_MAX = 7; // APA 8-ball skill range
-
-        // state per seat: 'in' (definitely), 'avail' (default), 'out'
-        let state = players.map(() => 'avail');
-        const STATE_TEXT = { in: 'IN', avail: 'MAYBE', out: 'OUT' };
+        const STORE_KEY = 'apa-lineup-planner:v1';
+        const CAP = 23;
+        const TEAM_SIZE = 5;
+        const MIN_ROSTER = 5, MAX_ROSTER = 8;
+        const FORMATS = {
+            '8': { label: '8-Ball', min: 2, max: 7 },
+            '9': { label: '9-Ball', min: 1, max: 9 },
+        };
+        const STATE_TEXT = { in: 'In', avail: 'Maybe', out: 'Out' };
         const STATE_ORDER = ['in', 'avail', 'out'];
-        let canBeIn = players.map(() => true);
-        const sliders = [];
 
-        // Could player i be locked In without making a legal <=cap lineup impossible?
-        // Checks the already-In players + i, filled out with the smallest available players.
-        function feasibleWithIn(forcedIdx) {
-            if (forcedIdx.length > teamSize) return false;
-            const forcedSet = new Set(forcedIdx);
-            let forcedSum = 0;
-            forcedIdx.forEach(i => { forcedSum += players[i]; });
-            const fillers = [];
-            for (let j = 0; j < players.length; j++) {
-                if (forcedSet.has(j) || state[j] === 'out') continue;
-                fillers.push(players[j]);
+        const $ = (id) => document.getElementById(id);
+        const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const uid = () => Math.random().toString(36).slice(2, 10);
+        const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+        const range = (lo, hi) => Array.from({ length: hi - lo + 1 }, (_, k) => lo + k);
+
+        // Saved data: { format, players: [{ id, name, sl, state }], match: { on, played: [ids in order] } }
+        function load() {
+            try {
+                const d = JSON.parse(localStorage.getItem(STORE_KEY));
+                if (!d || !FORMATS[d.format] || !Array.isArray(d.players)) return null;
+                const f = FORMATS[d.format];
+                const players = d.players.slice(0, MAX_ROSTER).map((p, i) => ({
+                    id: String(p.id || uid()),
+                    name: String(p.name || `Player ${i + 1}`).slice(0, 20),
+                    sl: clamp(parseInt(p.sl, 10) || f.min, f.min, f.max),
+                    state: STATE_ORDER.includes(p.state) ? p.state : 'avail',
+                }));
+                if (players.length < MIN_ROSTER) return null;
+                const ids = new Set(players.map(p => p.id));
+                const m = d.match || {};
+                const played = (Array.isArray(m.played) ? m.played : []).filter(id => ids.has(id)).slice(0, TEAM_SIZE);
+                return { format: d.format, players, match: { on: !!m.on, played } };
+            } catch (_) {
+                return null;
             }
-            const k = teamSize - forcedIdx.length;
-            if (fillers.length < k) return false;
-            fillers.sort((a, b) => a - b);
-            let minTotal = forcedSum;
-            for (let t = 0; t < k; t++) minTotal += fillers[t];
-            return minTotal <= cap;
         }
+        function save() {
+            try { localStorage.setItem(STORE_KEY, JSON.stringify(app)); } catch (_) {}
+        }
+
+        let app = load();
 
         function allIndexCombos(n, size) {
             const out = [];
@@ -365,215 +451,429 @@
             })(0, []);
             return out;
         }
-        const baseCombos = allIndexCombos(players.length, teamSize);
+
+        // Players who must be in every lineup: marked In, plus anyone already put up tonight.
+        function forcedIdx() {
+            const forced = new Set();
+            app.players.forEach((p, i) => { if (p.state === 'in') forced.add(i); });
+            if (app.match.on) {
+                app.match.played.forEach(id => {
+                    const i = app.players.findIndex(p => p.id === id);
+                    if (i >= 0) forced.add(i);
+                });
+            }
+            return forced;
+        }
+
+        // Can the forced players be completed to a full lineup without breaking the cap?
+        // Fills the open spots with the lowest available skill levels.
+        function feasible(forced) {
+            if (forced.size > TEAM_SIZE) return false;
+            let total = 0;
+            forced.forEach(i => { total += app.players[i].sl; });
+            const fillers = app.players
+                .filter((p, i) => !forced.has(i) && p.state !== 'out')
+                .map(p => p.sl)
+                .sort((a, b) => a - b);
+            const k = TEAM_SIZE - forced.size;
+            if (fillers.length < k) return false;
+            for (let t = 0; t < k; t++) total += fillers[t];
+            return total <= CAP;
+        }
+
+        // Lineups are grouped by their skill levels (e.g. 7,6,5,3,2). Within a group,
+        // a slot either names one player who's in every version, or lists the
+        // interchangeable players at that skill level.
+        function slotsFor(group, forced) {
+            const P = app.players;
+            const slots = [];
+            for (const v of new Set(group.sls)) {
+                const need = group.sls.filter(x => x === v).length;
+                const members = new Set();
+                group.combos.forEach(c => c.forEach(i => { if (P[i].sl === v) members.add(i); }));
+                const fixed = [...members].filter(i => group.combos.every(c => c.includes(i)));
+                const flex = [...members].filter(i => !fixed.includes(i));
+                fixed.forEach(i => slots.push({ sl: v, count: 1, names: [P[i].name], locked: forced.has(i) }));
+                const rest = need - fixed.length;
+                if (rest > 0) slots.push({ sl: v, count: rest, names: flex.map(i => P[i].name), locked: false });
+            }
+            return slots;
+        }
 
         function compute() {
-            const inIdx = state.map((s, i) => s === 'in' ? i : -1).filter(i => i >= 0);
-            const outIdx = new Set(state.map((s, i) => s === 'out' ? i : -1).filter(i => i >= 0));
-            const results = [];
-            const seen = new Set();
-            if (inIdx.length <= teamSize) {
-                for (const combo of baseCombos) {
-                    if (combo.some(i => outIdx.has(i))) continue;
-                    if (!inIdx.every(r => combo.includes(r))) continue;
-                    const vals = combo.map(i => players[i]);
-                    const total = vals.reduce((a, b) => a + b, 0);
-                    if (total > cap) continue;
-                    const sortedVals = [...vals].sort((a, b) => a - b);
-                    const key = sortedVals.join(',');
-                    if (seen.has(key)) continue;
-                    seen.add(key);
-                    results.push({ players: sortedVals, total });
+            const P = app.players;
+            const forced = forcedIdx();
+            const groups = new Map();
+            if (forced.size <= TEAM_SIZE) {
+                for (const combo of allIndexCombos(P.length, TEAM_SIZE)) {
+                    if (combo.some(i => P[i].state === 'out' && !forced.has(i))) continue;
+                    if ([...forced].some(i => !combo.includes(i))) continue;
+                    const total = combo.reduce((a, i) => a + P[i].sl, 0);
+                    if (total > CAP) continue;
+                    const sls = combo.map(i => P[i].sl).sort((a, b) => b - a);
+                    const key = sls.join(',');
+                    if (!groups.has(key)) groups.set(key, { key, sls, total, combos: [] });
+                    groups.get(key).combos.push(combo);
                 }
             }
-            results.sort((a, b) => {
-                if (b.total !== a.total) return b.total - a.total;
-                return a.players.join('') - b.players.join('');
-            });
-            return { results, inIdx, outIdx };
+            const results = [...groups.values()].map(g => ({ ...g, slots: slotsFor(g, forced) }));
+            results.sort((a, b) => b.total - a.total || b.key.localeCompare(a.key));
+            return { results, forced };
         }
 
         function totalClass(total) {
             return total >= 19 && total <= 23 ? `total-${total}` : 'total-low';
         }
 
+        // ---------- Plan view ----------
+        const rows = [];
+        let canBeIn = [];
+        let canPutUp = [];
+
         function setState(i, s) {
             if (s === 'in' && !canBeIn[i]) s = 'avail'; // can't lock In under the cap
-            if (state[i] !== s) { state[i] = s; refresh(); }
+            if (app.players[i].state !== s) { app.players[i].state = s; save(); refresh(); }
         }
 
-        function buildSliders() {
-            const chipsEl = document.getElementById('chips');
-            chipsEl.innerHTML = '';
-            sliders.length = 0;
-            players.forEach((v, i) => {
-                const col = document.createElement('div'); col.className = 'slider';
+        function buildRows() {
+            const ul = $('players');
+            ul.innerHTML = '';
+            rows.length = 0;
+            app.players.forEach((p, i) => {
+                const li = document.createElement('li');
+                li.className = 'prow';
+                li.innerHTML =
+                    `<span class="pname"></span>` +
+                    `<button class="sl-edit" type="button"></button>` +
+                    `<div class="seg" tabindex="0" role="slider" aria-valuemin="0" aria-valuemax="2">` +
+                    `<span class="ghost in">In</span><span class="ghost">Maybe</span><span class="ghost">Out</span>` +
+                    `<span class="thumb"></span></div>` +
+                    `<div class="mctl"></div>`;
+                const name = li.querySelector('.pname');
+                const edit = li.querySelector('.sl-edit');
+                const seg = li.querySelector('.seg');
+                const thumb = li.querySelector('.thumb');
+                const mctl = li.querySelector('.mctl');
+                name.textContent = p.name;
+                name.title = p.name;
+                edit.addEventListener('click', () => { if (!app.match.on) openPicker(i); });
 
-                const edit = document.createElement('button'); edit.className = 'sl-edit';
-                edit.setAttribute('aria-label', `Player ${i + 1} skill level`);
-                edit.addEventListener('click', (e) => { e.preventDefault(); openPicker(i); });
-                col.appendChild(edit);
-
-                const track = document.createElement('div'); track.className = 'track';
-                track.tabIndex = 0;
-                track.setAttribute('role', 'slider');
-                track.setAttribute('aria-orientation', 'vertical');
-                STATE_ORDER.forEach(st => {
-                    const g = document.createElement('span'); g.className = `ghost ${st}`;
-                    g.setAttribute('aria-hidden', 'true');
-                    g.textContent = STATE_TEXT[st];
-                    track.appendChild(g);
-                });
-                const thumb = document.createElement('div'); thumb.className = 'thumb';
-                track.appendChild(thumb);
-                col.appendChild(track);
-
-                chipsEl.appendChild(col);
-                sliders.push({ track, thumb, edit });
-
-                const apply = (clientY) => {
-                    const rect = track.getBoundingClientRect();
-                    const frac = (clientY - rect.top) / rect.height;
-                    let s = 'avail';
-                    if (frac < 0.34) s = 'in';
-                    else if (frac > 0.66) s = 'out';
-                    setState(i, s);
+                const applyX = (clientX) => {
+                    const rect = seg.getBoundingClientRect();
+                    const frac = (clientX - rect.left) / rect.width;
+                    setState(i, frac < 1 / 3 ? 'in' : frac > 2 / 3 ? 'out' : 'avail');
                 };
-                let dragging = false;
-                track.addEventListener('pointerdown', (e) => {
-                    dragging = true;
-                    try { track.setPointerCapture(e.pointerId); } catch (_) {}
-                    apply(e.clientY); e.preventDefault();
-                    track.focus({ preventScroll: true });
+                // Tap picks a spot; a horizontal drag slides. A vertical swipe scrolls the page and changes nothing.
+                let start = null, sliding = false;
+                seg.addEventListener('pointerdown', (e) => { start = { x: e.clientX, y: e.clientY }; sliding = false; });
+                seg.addEventListener('pointermove', (e) => {
+                    if (!start) return;
+                    const dx = Math.abs(e.clientX - start.x), dy = Math.abs(e.clientY - start.y);
+                    if (!sliding && dx > 8 && dx > dy) {
+                        sliding = true;
+                        try { seg.setPointerCapture(e.pointerId); } catch (_) {}
+                    }
+                    if (sliding) applyX(e.clientX);
                 });
-                track.addEventListener('pointermove', (e) => { if (dragging) apply(e.clientY); });
-                const stop = (e) => { dragging = false; try { track.releasePointerCapture(e.pointerId); } catch (_) {} };
-                track.addEventListener('pointerup', stop);
-                track.addEventListener('pointercancel', () => { dragging = false; });
-                track.addEventListener('keydown', (e) => {
-                    const pos = STATE_ORDER.indexOf(state[i]);
-                    if (e.key === 'ArrowUp' || e.key === 'ArrowRight') setState(i, STATE_ORDER[Math.max(0, pos - 1)]);
-                    else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') setState(i, STATE_ORDER[Math.min(2, pos + 1)]);
+                seg.addEventListener('pointerup', (e) => { if (start) applyX(e.clientX); start = null; });
+                seg.addEventListener('pointercancel', () => { start = null; });
+                seg.addEventListener('keydown', (e) => {
+                    const pos = STATE_ORDER.indexOf(app.players[i].state);
+                    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') setState(i, STATE_ORDER[Math.max(0, pos - 1)]);
+                    else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') setState(i, STATE_ORDER[Math.min(2, pos + 1)]);
                     else return;
                     e.preventDefault();
                 });
+
+                mctl.addEventListener('click', (e) => {
+                    const id = app.players[i].id;
+                    if (e.target.closest('.putup')) {
+                        if (!app.match.played.includes(id) && app.match.played.length < TEAM_SIZE) app.match.played.push(id);
+                    } else if (e.target.closest('.undo')) {
+                        app.match.played = app.match.played.filter(x => x !== id);
+                    } else return;
+                    save(); refresh();
+                });
+
+                ul.appendChild(li);
+                rows.push({ edit, seg, thumb, mctl });
             });
         }
 
-        function updateThumbs() {
-            sliders.forEach((s, i) => {
-                s.thumb.textContent = STATE_TEXT[state[i]];
-                s.thumb.classList.remove('in', 'avail', 'out');
-                s.thumb.classList.add(state[i]);
-                s.thumb.style.top = state[i] === 'in'
-                    ? '2px'
-                    : state[i] === 'out'
-                        ? 'calc(100% - var(--thumbH) - 2px)'
-                        : 'calc(50% - var(--thumbH) / 2)';
-                // grey the track when this player can't be locked In under the cap
-                s.track.classList.toggle('locked', state[i] === 'avail' && !canBeIn[i]);
-                s.track.setAttribute('aria-label', `Player ${i + 1}, skill level ${players[i]}`);
-                s.track.setAttribute('aria-valuetext', STATE_TEXT[state[i]].toLowerCase());
-                s.edit.innerHTML = players[i] + ' <span class="caret">&#9662;</span>';
-            });
+        function renderMatchPanel(played) {
+            const P = app.players;
+            const byId = Object.fromEntries(P.map(p => [p.id, p]));
+            const used = played.reduce((a, id) => a + byId[id].sl, 0);
+            const left = CAP - used;
+            const spots = TEAM_SIZE - played.length;
+            const eligible = P.filter((p, i) => !played.includes(p.id) && p.state !== 'out' && canPutUp[i]);
+            let text;
+            if (used > CAP) text = `<b>${used}</b> of ${CAP} &middot; <b>over the cap</b>, undo a pick`;
+            else if (spots === 0) text = `Lineup complete &middot; <b>${used}</b> of ${CAP}`;
+            else {
+                text = `<b>${used}</b> of ${CAP} used &middot; <b>${left}</b> left for ${spots} player${spots === 1 ? '' : 's'}`;
+                if (eligible.length) text += ` &middot; next can be up to <b>SL ${Math.max(...eligible.map(p => p.sl))}</b>`;
+                else text += ` &middot; <b>no one left fits</b>, undo a pick or change who's In`;
+            }
+            $('matchPanel').innerHTML =
+                `<div class="match-title"><b>Match night</b><span>${played.length} of ${TEAM_SIZE} played</span></div>` +
+                `<ol class="order">` +
+                range(0, TEAM_SIZE - 1).map(k => {
+                    const p = byId[played[k]];
+                    return p
+                        ? `<li class="filled"><b>${p.sl}</b><span>${esc(p.name)}</span></li>`
+                        : `<li>${k + 1}</li>`;
+                }).join('') +
+                `</ol>` +
+                `<div class="capbar"><i style="width:${Math.min(100, used / CAP * 100)}%"></i></div>` +
+                `<div class="captext">${text}</div>`;
         }
 
         function refresh() {
-            const data = compute();
-            // which players can still be locked In without breaking the cap
-            canBeIn = players.map((_, i) => state[i] === 'in' ? true : feasibleWithIn([...data.inIdx, i]));
-            updateThumbs();
-            document.getElementById('rosterList').textContent = players.join(', ');
+            const P = app.players;
+            const { results, forced } = compute();
+            canBeIn = P.map((_, i) => forced.has(i) || feasible(new Set([...forced, i])));
+            // Unlike canBeIn, this also fails for In players when the forced group itself no longer fits.
+            canPutUp = P.map((_, i) => feasible(new Set([...forced, i])));
+            const matchOn = app.match.on;
+            const played = matchOn ? app.match.played : [];
 
-            const inCount = data.inIdx.length;
-            const outCount = data.outIdx.size;
-            const availCount = state.filter(s => s === 'avail').length;
-            const notOut = players.length - outCount;
+            $('title').textContent = `APA ${FORMATS[app.format].label} Lineup Planner`;
+            $('info').innerHTML = `${P.length} players &nbsp;&middot;&nbsp; Cap <b>${CAP}</b> &nbsp;&middot;&nbsp; ${TEAM_SIZE} play per match`;
+
+            $('rosterPanel').classList.toggle('match-on', matchOn);
+            $('matchPanel').hidden = !matchOn;
+            if (matchOn) renderMatchPanel(played);
+            const toggle = $('matchToggle');
+            toggle.textContent = matchOn ? 'End match' : 'Match night';
+            toggle.setAttribute('aria-pressed', String(matchOn));
+            $('legend').innerHTML = matchOn
+                ? 'Tap <b>Put up</b> as each player goes to the table. Only players who still leave room for a legal lineup can be put up.'
+                : 'Tap a skill level to change it. Slide or tap each player to <b>In</b> (definitely playing), <b>Maybe</b> or <b>Out</b>. A crossed-out <s>In</s> means locking them in would break the 23 cap.';
+
+            rows.forEach((r, i) => {
+                const p = P[i];
+                const s = p.state;
+                r.thumb.className = `thumb ${s}`;
+                r.thumb.textContent = STATE_TEXT[s];
+                r.seg.classList.toggle('locked', s !== 'in' && !canBeIn[i]);
+                r.seg.setAttribute('aria-label', `${p.name}, skill level ${p.sl}`);
+                r.seg.setAttribute('aria-valuenow', String(STATE_ORDER.indexOf(s)));
+                r.seg.setAttribute('aria-valuetext', STATE_TEXT[s]);
+                r.edit.innerHTML = `${p.sl} <span class="caret">&#9662;</span>`;
+                r.edit.setAttribute('aria-label', `${p.name} skill level ${p.sl}`);
+                if (matchOn) {
+                    const pos = played.indexOf(p.id);
+                    if (pos >= 0) r.mctl.innerHTML = `<span class="tag played">#${pos + 1} played</span><button class="undo" type="button">Undo</button>`;
+                    else if (s === 'out') r.mctl.innerHTML = `<span class="tag">Out tonight</span>`;
+                    else if (played.length >= TEAM_SIZE) r.mctl.innerHTML = `<span class="tag">Sitting</span>`;
+                    else if (!canPutUp[i]) r.mctl.innerHTML = `<button class="putup" type="button" disabled>Won't fit</button>`;
+                    else r.mctl.innerHTML = `<button class="putup" type="button">Put up</button>`;
+                }
+            });
+
+            const count = (st) => P.filter(p => p.state === st).length;
+            const inCount = count('in'), outCount = count('out'), availCount = count('avail');
+            const notOut = P.length - outCount;
             let note = '';
-            if (inCount > teamSize) note = 'Too many set to In (max 5)';
-            else if (notOut < teamSize) note = `Need 5 available (have ${notOut})`;
-            const n = data.results.length;
-            document.getElementById('status').innerHTML =
-                `<span class="stat lineups"><b>${n}</b> lineup${n === 1 ? '' : 's'}</span>` +
+            if (forced.size > TEAM_SIZE) note = `Too many set to In (max ${TEAM_SIZE})`;
+            else if (notOut < TEAM_SIZE) note = `Need ${TEAM_SIZE} available (have ${notOut})`;
+            const n = results.length;
+            $('status').innerHTML =
+                `<span class="stat count"><b>${n}</b> lineup${n === 1 ? '' : 's'}</span>` +
                 `<span class="stat">In <b>${inCount}</b></span>` +
                 `<span class="stat">Maybe <b>${availCount}</b></span>` +
                 `<span class="stat">Out <b>${outCount}</b></span>` +
                 (note ? `<span class="note">${note}</span>` : '');
 
-            const tbody = document.getElementById('combinations');
-            tbody.innerHTML = '';
-            if (n === 0) {
-                tbody.innerHTML = `<tr><td class="empty" colspan="7">No lineups match the current selection.</td></tr>`;
-            } else {
-                data.results.forEach((c, idx) => {
-                    const tr = document.createElement('tr');
-                    tr.className = totalClass(c.total);
-                    tr.innerHTML = `<td class="idx">${idx + 1}</td>` + c.players.map(p => `<td>${p}</td>`).join('') + `<td class="tot">${c.total}</td>`;
-                    tbody.appendChild(tr);
-                });
-            }
+            $('lineups').innerHTML = n === 0
+                ? `<li class="empty">No lineups match the current selection.</li>`
+                : results.map(r =>
+                    `<li class="lineup ${totalClass(r.total)}"><span class="ltot" aria-label="Total ${r.total}">${r.total}</span><div class="lslots">` +
+                    r.slots.map(s => {
+                        const label = s.count > 1 ? Array(s.count).fill(s.sl).join(' + ') : s.sl;
+                        const names = s.names.map(esc).join(' / ');
+                        const alt = s.names.length > s.count;
+                        return `<span class="slot${s.locked ? ' locked' : ''}${alt ? ' alt' : ''}"><b>${label}</b><span>${alt && s.count > 1 ? 'from ' : ''}${names}</span></span>`;
+                    }).join('') +
+                    `</div></li>`
+                ).join('');
 
             const totals = {};
-            data.results.forEach(c => { totals[c.total] = (totals[c.total] || 0) + 1; });
-            let html = '<h3>Lineups by total</h3>';
+            results.forEach(r => { totals[r.total] = (totals[r.total] || 0) + 1; });
+            let html = '<h3>Lineups by total</h3><div class="totals">';
             if (n) {
-                html += '<div class="totals">';
                 Object.keys(totals).sort((a, b) => b - a).forEach(t => {
-                    html += `<span class="tchip"><span class="swatch ${totalClass(+t)}">${t}</span><b>${totals[t]}</b>${t == cap ? ' &middot; max' : ''}</span>`;
+                    html += `<span class="tchip"><span class="swatch ${totalClass(+t)}">${t}</span><b>${totals[t]}</b>${+t === CAP ? ' &middot; max' : ''}</span>`;
                 });
-                html += '</div>';
             } else {
-                html += '<div class="totals"><span class="tchip">None</span></div>';
+                html += '<span class="tchip">None</span>';
             }
-            document.getElementById('summary').innerHTML = html;
+            $('summary').innerHTML = html + '</div>';
         }
 
-        document.getElementById('reset').addEventListener('click', () => {
-            state = players.map(() => 'avail');
-            refresh();
+        $('reset').addEventListener('click', () => {
+            app.players.forEach(p => { p.state = 'avail'; });
+            app.match.played = [];
+            save(); refresh();
         });
 
-        // Skill-level picker
-        let editIndex = null;
-        const overlay = document.getElementById('overlay');
-        const pickerGrid = document.getElementById('pickerGrid');
-        const pickerTitle = document.getElementById('pickerTitle');
+        $('matchToggle').addEventListener('click', () => {
+            if (app.match.on) {
+                if (app.match.played.length && !confirm('End match night? This clears who has played.')) return;
+                app.match = { on: false, played: [] };
+            } else {
+                app.match = { on: true, played: [] };
+            }
+            save(); refresh();
+        });
 
-        function buildPicker() {
-            pickerGrid.innerHTML = '';
-            for (let v = SL_MIN; v <= SL_MAX; v++) {
-                const b = document.createElement('button');
-                b.className = 'pick';
-                b.textContent = v;
-                b.dataset.v = v;
-                b.addEventListener('click', () => {
-                    if (editIndex !== null) { players[editIndex] = v; refresh(); }
-                    closePicker();
-                });
-                pickerGrid.appendChild(b);
+        $('editRoster').addEventListener('click', () => openSetup());
+
+        function showPlan() {
+            $('setupView').hidden = true;
+            $('planView').hidden = false;
+            buildRows();
+            refresh();
+        }
+
+        // ---------- Roster setup ----------
+        let draft = null;
+
+        function openSetup() {
+            draft = app
+                ? { format: app.format, players: app.players.map(p => ({ id: p.id, name: p.name, sl: p.sl })) }
+                : { format: '8', players: range(1, MIN_ROSTER).map(() => ({ id: uid(), name: '', sl: 3 })) };
+            $('planView').hidden = true;
+            $('setupView').hidden = false;
+            $('title').textContent = app ? `APA ${FORMATS[app.format].label} Lineup Planner` : 'APA Lineup Planner';
+            $('info').textContent = app ? 'Edit your roster' : 'Plan legal lineups under the 23 cap';
+            renderSetup();
+            window.scrollTo(0, 0);
+        }
+
+        function renderSetup(focusLast) {
+            const f = FORMATS[draft.format];
+            const first = !app;
+            $('setupView').innerHTML =
+                `<section class="panel setup">` +
+                `<h2>${first ? 'Set up your team' : 'Edit roster'}</h2>` +
+                (first ? `<p class="hint">Add your players and their skill levels. It's saved on this device, so you only do this once.</p>` : '<p class="hint">Changes to skill levels and names are kept on this device.</p>') +
+                `<div class="fmt" role="group" aria-label="Format">` +
+                Object.entries(FORMATS).map(([k, v]) => `<button type="button" data-fmt="${k}" aria-pressed="${k === draft.format}">${v.label}</button>`).join('') +
+                `</div>` +
+                `<ol class="setup-list">` +
+                draft.players.map((p, i) =>
+                    `<li data-i="${i}"><span class="num">${i + 1}</span>` +
+                    `<input class="name" type="text" maxlength="20" autocomplete="off" autocapitalize="words" enterkeyhint="next" placeholder="Player ${i + 1}" value="${esc(p.name)}" aria-label="Player ${i + 1} name">` +
+                    `<select class="sl" aria-label="Player ${i + 1} skill level">` +
+                    range(f.min, f.max).map(v => `<option value="${v}"${v === p.sl ? ' selected' : ''}>SL ${v}</option>`).join('') +
+                    `</select>` +
+                    `<button type="button" class="remove" aria-label="Remove player ${i + 1}"${draft.players.length <= 1 ? ' disabled' : ''}>&times;</button></li>`
+                ).join('') +
+                `</ol>` +
+                (draft.players.length < MAX_ROSTER ? `<button type="button" class="add">+ Add player</button>` : '') +
+                `<p class="warn" id="setupWarn"></p>` +
+                `<div class="setup-actions">` +
+                (first ? '' : `<button type="button" class="btn secondary cancel">Cancel</button>`) +
+                `<button type="button" class="btn save">${first ? 'Start planning' : 'Save roster'}</button>` +
+                `</div>` +
+                `</section>`;
+            if (focusLast) {
+                const inputs = $('setupView').querySelectorAll('.name');
+                inputs[inputs.length - 1].focus();
             }
         }
+
+        $('setupView').addEventListener('input', (e) => {
+            const li = e.target.closest('li[data-i]');
+            if (li && e.target.classList.contains('name')) draft.players[+li.dataset.i].name = e.target.value;
+        });
+        $('setupView').addEventListener('change', (e) => {
+            const li = e.target.closest('li[data-i]');
+            if (li && e.target.classList.contains('sl')) draft.players[+li.dataset.i].sl = +e.target.value;
+        });
+        $('setupView').addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' || !e.target.classList.contains('name')) return;
+            e.preventDefault();
+            const inputs = [...$('setupView').querySelectorAll('.name')];
+            const next = inputs[inputs.indexOf(e.target) + 1];
+            if (next) next.focus(); else e.target.blur();
+        });
+        $('setupView').addEventListener('click', (e) => {
+            const t = e.target;
+            if (t.closest('[data-fmt]')) {
+                draft.format = t.closest('[data-fmt]').dataset.fmt;
+                const f = FORMATS[draft.format];
+                draft.players.forEach(p => { p.sl = clamp(p.sl, f.min, f.max); });
+                renderSetup();
+            } else if (t.closest('.remove')) {
+                draft.players.splice(+t.closest('li').dataset.i, 1);
+                renderSetup();
+            } else if (t.closest('.add')) {
+                const f = FORMATS[draft.format];
+                draft.players.push({ id: uid(), name: '', sl: clamp(3, f.min, f.max) });
+                renderSetup(true);
+            } else if (t.closest('.cancel')) {
+                showPlan();
+            } else if (t.closest('.save')) {
+                if (draft.players.length < MIN_ROSTER) {
+                    $('setupWarn').textContent = `Add at least ${MIN_ROSTER} players to build a lineup.`;
+                    return;
+                }
+                const old = app ? Object.fromEntries(app.players.map(p => [p.id, p])) : {};
+                const players = draft.players.map((d, i) => ({
+                    id: d.id,
+                    name: d.name.trim() || `Player ${i + 1}`,
+                    sl: d.sl,
+                    state: old[d.id] ? old[d.id].state : 'avail',
+                }));
+                const ids = new Set(players.map(p => p.id));
+                const match = app ? app.match : { on: false, played: [] };
+                match.played = match.played.filter(id => ids.has(id));
+                app = { format: draft.format, players, match };
+                save();
+                showPlan();
+                window.scrollTo(0, 0);
+            }
+        });
+
+        // ---------- Skill-level picker ----------
+        let editIndex = null;
+        const overlay = $('overlay');
+        const pickerGrid = $('pickerGrid');
+
         function openPicker(i) {
             editIndex = i;
-            pickerTitle.textContent = `Player ${i + 1} — skill level`;
-            [...pickerGrid.children].forEach(b => b.classList.toggle('sel', +b.dataset.v === players[i]));
+            const f = FORMATS[app.format];
+            const p = app.players[i];
+            $('pickerTitle').textContent = `${p.name} — skill level`;
+            pickerGrid.innerHTML = range(f.min, f.max)
+                .map(v => `<button type="button" class="pick${v === p.sl ? ' sel' : ''}" data-v="${v}">${v}</button>`).join('');
             overlay.hidden = false;
-            const sel = pickerGrid.querySelector('.sel') || pickerGrid.firstChild;
-            sel.focus({ preventScroll: true });
+            (pickerGrid.querySelector('.sel') || pickerGrid.firstChild).focus({ preventScroll: true });
         }
         function closePicker() {
             const i = editIndex;
             overlay.hidden = true; editIndex = null;
-            if (i !== null) sliders[i].edit.focus({ preventScroll: true });
+            if (i !== null && rows[i]) rows[i].edit.focus({ preventScroll: true });
         }
-
+        pickerGrid.addEventListener('click', (e) => {
+            const b = e.target.closest('.pick');
+            if (!b || editIndex === null) return;
+            app.players[editIndex].sl = +b.dataset.v;
+            save(); refresh();
+            closePicker();
+        });
         overlay.addEventListener('click', (e) => { if (e.target === overlay) closePicker(); });
-        document.getElementById('pickerCancel').addEventListener('click', closePicker);
+        $('pickerCancel').addEventListener('click', closePicker);
         document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !overlay.hidden) closePicker(); });
 
-        buildPicker();
-        buildSliders();
-        refresh();
+        if (app) showPlan(); else openSetup();
+
+        if ('serviceWorker' in navigator && location.protocol === 'https:') {
+            navigator.serviceWorker.register('sw.js').catch(() => {});
+        }
     </script>
 </body>
 </html>
