@@ -124,14 +124,7 @@
         }
 
         /* Roster sliders */
-        .board { display: flex; gap: var(--gap); align-items: flex-start; }
-        .gutter {
-            flex: 0 0 auto; display: flex; flex-direction: column; justify-content: space-between;
-            height: var(--trackH); margin-top: calc(var(--editH) + 8px); padding: 12px 0;
-            font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px;
-            color: var(--muted); text-align: right;
-        }
-        .chips { flex: 1; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: var(--gap); }
+        .chips { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: var(--gap); }
         .slider { display: flex; flex-direction: column; align-items: stretch; min-width: 0; }
         .sl-edit {
             height: var(--editH); margin: 0 0 8px; padding: 0;
@@ -152,12 +145,15 @@
         .track:focus-visible, .sl-edit:focus-visible, .reset:focus-visible, .pick:focus-visible {
             outline: 2px solid var(--head); outline-offset: 2px;
         }
-        .track::before, .track::after {
-            content: ""; position: absolute; left: 20%; right: 20%; height: 1px;
-            background: var(--line);
+        .ghost {
+            position: absolute; left: 2px; right: 2px; height: var(--thumbH);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0;
+            color: var(--muted); opacity: .5; pointer-events: none; white-space: nowrap; overflow: hidden;
         }
-        .track::before { top: 33.3%; }
-        .track::after { top: 66.6%; }
+        .ghost.in { top: 2px; }
+        .ghost.avail { top: calc(50% - var(--thumbH) / 2); }
+        .ghost.out { bottom: 2px; }
         .thumb {
             position: absolute; left: 2px; right: 2px; height: var(--thumbH);
             border-radius: 9px; display: flex; align-items: center; justify-content: center;
@@ -169,10 +165,8 @@
         .thumb.avail { background: var(--thumb-avail-bg); color: var(--thumb-avail-ink); }
         .thumb.out { background: var(--thumb-out-bg); color: var(--thumb-out-ink); }
         .track.locked { opacity: .4; }
-        .thumb .short { display: none; }
         @media (max-width: 599px) {
-            .thumb .full { display: none; }
-            .thumb .short { display: inline; font-size: 12px; }
+            .thumb, .ghost { left: 1px; right: 1px; font-size: 9px; letter-spacing: -.3px; }
         }
 
         .legend { font-size: 13px; color: var(--muted); margin: 14px 0 0; line-height: 1.5; }
@@ -252,9 +246,10 @@
 
         /* Small phones */
         @media (max-width: 380px) {
-            :root { --gap: 4px; --trackH: 156px; }
-            .gutter { font-size: 9px; letter-spacing: 0; }
-            .thumb { font-size: 9px; }
+            :root { --gap: 3px; --trackH: 156px; }
+            body { padding-left: max(8px, env(safe-area-inset-left)); padding-right: max(8px, env(safe-area-inset-right)); }
+            .roster { padding-left: 8px; padding-right: 8px; }
+            .thumb, .ghost { font-size: 8px; }
             .sl-edit { font-size: 16px; }
             .sl-edit .caret { display: none; }
         }
@@ -266,7 +261,6 @@
             .panel { padding: 18px; }
             :root { --gap: 10px; --trackH: 180px; }
             .thumb { font-size: 11px; letter-spacing: .3px; }
-            .gutter { font-size: 11px; }
         }
 
         /* Desktop: controls pinned left, results right */
@@ -293,11 +287,8 @@
     <main class="layout">
         <section class="panel roster" aria-label="Roster">
             <h2>Roster &amp; availability</h2>
-            <div class="board">
-                <div class="gutter" aria-hidden="true"><span>In</span><span>Maybe</span><span>Out</span></div>
-                <div class="chips" id="chips"></div>
-            </div>
-            <p class="legend">Tap a skill level to change it. Drag or tap a slider: top = <b>In</b> (definitely playing), middle = <b>Maybe</b>, bottom = <b>Out</b>. A <b>greyed</b> slider can't be set to In &mdash; it would break the 23 cap.</p>
+            <div class="chips" id="chips"></div>
+            <p class="legend">Tap a skill level to change it. Drag or tap a slider to mark each player <b>In</b> (definitely playing), <b>Maybe</b> or <b>Out</b>. A <b>greyed</b> slider can't be set to In &mdash; it would break the 23 cap.</p>
 
             <div class="controls">
                 <div class="status" id="status" aria-live="polite"></div>
@@ -340,7 +331,6 @@
         // state per seat: 'in' (definitely), 'avail' (default), 'out'
         let state = players.map(() => 'avail');
         const STATE_TEXT = { in: 'IN', avail: 'MAYBE', out: 'OUT' };
-        const STATE_SHORT = { in: 'IN', avail: '?', out: 'OUT' };
         const STATE_ORDER = ['in', 'avail', 'out'];
         let canBeIn = players.map(() => true);
         const sliders = [];
@@ -428,6 +418,12 @@
                 track.tabIndex = 0;
                 track.setAttribute('role', 'slider');
                 track.setAttribute('aria-orientation', 'vertical');
+                STATE_ORDER.forEach(st => {
+                    const g = document.createElement('span'); g.className = `ghost ${st}`;
+                    g.setAttribute('aria-hidden', 'true');
+                    g.textContent = STATE_TEXT[st];
+                    track.appendChild(g);
+                });
                 const thumb = document.createElement('div'); thumb.className = 'thumb';
                 track.appendChild(thumb);
                 col.appendChild(track);
@@ -466,7 +462,7 @@
 
         function updateThumbs() {
             sliders.forEach((s, i) => {
-                s.thumb.innerHTML = `<span class="full">${STATE_TEXT[state[i]]}</span><span class="short">${STATE_SHORT[state[i]]}</span>`;
+                s.thumb.textContent = STATE_TEXT[state[i]];
                 s.thumb.classList.remove('in', 'avail', 'out');
                 s.thumb.classList.add(state[i]);
                 s.thumb.style.top = state[i] === 'in'
