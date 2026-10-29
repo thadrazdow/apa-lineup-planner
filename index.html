@@ -1083,8 +1083,10 @@
         });
 
         // ---------- Share the planner itself (no roster attached) ----------
+        // Always share the canonical address (from <link rel="canonical">), not whatever URL this copy was opened from.
         $('sharePlanner').addEventListener('click', async () => {
-            const url = `${location.origin}${location.pathname}`;
+            const canonical = document.querySelector('link[rel="canonical"]');
+            const url = (canonical && canonical.href) || `${location.origin}${location.pathname}`;
             const text = 'Free APA lineup calculator: every legal lineup under the 23 rule, works offline on your phone.';
             if (navigator.share) {
                 try { await navigator.share({ title: 'APA Lineup Planner', text, url }); } catch (_) { /* dismissed */ }
