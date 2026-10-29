@@ -1070,7 +1070,8 @@
             const url = `${location.origin}${location.pathname}#roster=${encodeRoster()}`;
             if (navigator.share) {
                 try {
-                    await navigator.share({ title: 'APA Lineup Planner', text: 'Our team roster for the APA Lineup Planner', url });
+                    // Only title + url: the iOS/macOS share sheet's "Copy" appends any `text` to the URL, producing a broken link.
+                    await navigator.share({ title: 'Our roster — APA Lineup Planner', url });
                 } catch (_) { /* share sheet dismissed */ }
                 return;
             }
@@ -1087,9 +1088,9 @@
         $('sharePlanner').addEventListener('click', async () => {
             const canonical = document.querySelector('link[rel="canonical"]');
             const url = (canonical && canonical.href) || `${location.origin}${location.pathname}`;
-            const text = 'Free APA lineup calculator: every legal lineup under the 23 rule, works offline on your phone.';
             if (navigator.share) {
-                try { await navigator.share({ title: 'APA Lineup Planner', text, url }); } catch (_) { /* dismissed */ }
+                // No `text` field: the share sheet's "Copy" would append it to the URL (see roster share above).
+                try { await navigator.share({ title: 'APA Lineup Planner — free 23-rule lineup calculator', url }); } catch (_) { /* dismissed */ }
                 return;
             }
             try {
