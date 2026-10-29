@@ -4,7 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>APA Lineup Planner</title>
-    <meta name="description" content="Plan legal APA 8-ball and 9-ball lineups under the 23-point skill level cap.">
+    <meta name="description" content="Free APA lineup calculator for team captains. See every legal 8-ball and 9-ball lineup under the 23 rule, track the cap on match night, works offline on your phone.">
+    <!-- Link previews (Facebook, iMessage, Reddit, Discord). Update og:url / og:image when the site moves to its own domain. -->
+    <link rel="canonical" href="https://thadrazdow.github.io/apa-lineup-planner/">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="APA Lineup Planner">
+    <meta property="og:title" content="APA Lineup Planner — free 23-rule lineup calculator">
+    <meta property="og:description" content="Enter your roster once, mark who's in, and see every legal lineup under the 23-point cap. Match-night mode tracks the cap as players go up. No account, works offline.">
+    <meta property="og:url" content="https://thadrazdow.github.io/apa-lineup-planner/">
+    <meta property="og:image" content="https://thadrazdow.github.io/apa-lineup-planner/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="APA Lineup Planner: every legal lineup under the 23 rule">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="APA Lineup Planner — free 23-rule lineup calculator">
+    <meta name="twitter:description" content="Every legal APA 8-ball and 9-ball lineup under the 23-point cap, plus a match-night cap tracker. Free, no account, works offline.">
+    <meta name="twitter:image" content="https://thadrazdow.github.io/apa-lineup-planner/og-image.png">
     <meta name="theme-color" content="#f3f5f7" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#121518" media="(prefers-color-scheme: dark)">
     <meta name="mobile-web-app-capable" content="yes">
@@ -355,6 +370,30 @@
         .setup-actions .btn { min-width: 120px; }
         .storage-note { margin: 12px 0 0; font-size: 12px; color: var(--muted); text-align: right; }
 
+        /* Footer: share, support, gear, privacy. Sits below both views. */
+        footer {
+            max-width: 1100px; margin: 28px auto 0; padding-top: 16px; border-top: 1px solid var(--line);
+            color: var(--muted); font-size: 13px; display: grid; gap: 14px;
+        }
+        .foot-row { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px 18px; text-align: center; }
+        .foot-row a, .foot-row .link { color: var(--head); font-weight: 600; text-decoration: none; font-size: 13px; padding: 6px 0; }
+        .foot-row a:hover { text-decoration: underline; }
+        .foot-row .sep { color: var(--line); }
+        .gear {
+            background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 12px; box-shadow: var(--shadow);
+        }
+        .gear h2 { margin: 0 0 4px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
+        .gear p { margin: 0 0 12px; color: var(--muted); }
+        .gear ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+        .gear a {
+            display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 10px;
+            border: 1px solid var(--line); background: var(--track-bg); color: var(--ink); text-decoration: none; min-height: 44px;
+        }
+        .gear a:hover { border-color: var(--head); }
+        .gear a b { font-size: 14px; }
+        .gear a span { font-size: 12px; color: var(--muted); }
+        .gear .disclosure { margin: 10px 0 0; font-size: 11px; }
+
         /* Small phones */
         @media (max-width: 380px) {
             body { padding-left: max(8px, env(safe-area-inset-left)); padding-right: max(8px, env(safe-area-inset-right)); }
@@ -437,6 +476,18 @@
     </main>
 
     <main class="setup-wrap" id="setupView" hidden></main>
+
+    <footer>
+        <section class="gear" id="gear" hidden aria-label="Gear"></section>
+        <div class="foot-row">
+            <button class="link" id="sharePlanner" type="button">Share this planner</button>
+            <a id="supportLink" href="#" target="_blank" rel="noopener" hidden></a>
+            <a href="privacy.html">Privacy</a>
+        </div>
+        <div class="foot-row">
+            <span>Free tool built by an APA captain. Not affiliated with or endorsed by the American Poolplayers Association.</span>
+        </div>
+    </footer>
 
     <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
@@ -1030,6 +1081,52 @@
                 prompt('Copy this link to share your roster:', url);
             }
         });
+
+        // ---------- Share the planner itself (no roster attached) ----------
+        $('sharePlanner').addEventListener('click', async () => {
+            const url = `${location.origin}${location.pathname}`;
+            const text = 'Free APA lineup calculator: every legal lineup under the 23 rule, works offline on your phone.';
+            if (navigator.share) {
+                try { await navigator.share({ title: 'APA Lineup Planner', text, url }); } catch (_) { /* dismissed */ }
+                return;
+            }
+            try {
+                await navigator.clipboard.writeText(url);
+                toast('Link copied');
+            } catch (_) {
+                prompt('Copy this link to share the planner:', url);
+            }
+        });
+
+        // ---------- Support + gear links ----------
+        // Fill these in once the accounts exist (see LAUNCH_PLAN.md). Anything left empty is simply not shown.
+        const LINKS = {
+            // Ko-fi / Buy Me a Coffee page, e.g. 'https://ko-fi.com/yourname'
+            support: { url: '', label: 'Buy me a rack ☕' },
+            // Affiliate links. Keep it to 3–4 things you actually use; honest one-liners convert better than a catalog.
+            gear: {
+                title: 'Gear I actually use',
+                intro: 'A few things that live in my case. If you buy through these links the site gets a small cut, at no cost to you.',
+                items: [
+                    // { name: 'Kamui 0.98 chalk', note: 'Lasts a whole session, barely any mess.', url: 'https://amzn.to/...' },
+                    // { name: 'Predator Second Skin glove', note: 'Humid bar? No problem.', url: 'https://amzn.to/...' },
+                    // { name: 'Tip Pik tip tool', note: 'The $8 fix for a glazed tip.', url: 'https://amzn.to/...' },
+                ],
+            },
+        };
+        function renderFooterLinks() {
+            const support = $('supportLink');
+            if (LINKS.support.url) { support.href = LINKS.support.url; support.textContent = LINKS.support.label; support.hidden = false; }
+            const items = LINKS.gear.items.filter(i => i && i.url);
+            const gear = $('gear');
+            if (!items.length) return;
+            gear.innerHTML =
+                `<h2>${esc(LINKS.gear.title)}</h2><p>${esc(LINKS.gear.intro)}</p>` +
+                `<ul>${items.map(i => `<li><a href="${esc(i.url)}" target="_blank" rel="noopener sponsored"><b>${esc(i.name)}</b><span>${esc(i.note || '')}</span></a></li>`).join('')}</ul>` +
+                `<p class="disclosure">As an Amazon Associate I earn from qualifying purchases.</p>`;
+            gear.hidden = false;
+        }
+        renderFooterLinks();
 
         // Returns true if a shared roster in the URL was loaded.
         function importFromHash() {

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Privacy — APA Lineup Planner</title>
+    <meta name="description" content="What the APA Lineup Planner stores, and what it doesn't.">
+    <meta name="theme-color" content="#f3f5f7" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#121518" media="(prefers-color-scheme: dark)">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='%23111'/%3E%3Ccircle cx='50' cy='50' r='22' fill='%23fff'/%3E%3Ctext x='50' y='60' font-family='Arial' font-weight='bold' font-size='28' text-anchor='middle' fill='%23111'%3E8%3C/text%3E%3C/svg%3E">
+    <style>
+        :root { --bg: #f3f5f7; --card: #ffffff; --ink: #1f2d3a; --muted: #6b7885; --line: #dde2e7; --head: #2f80c8; }
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) { --bg: #121518; --card: #1c2025; --ink: #e6e9ec; --muted: #98a3ad; --line: #313840; --head: #2c6ca3; }
+        }
+        :root[data-theme="dark"] { --bg: #121518; --card: #1c2025; --ink: #e6e9ec; --muted: #98a3ad; --line: #313840; --head: #2c6ca3; }
+        * { box-sizing: border-box; }
+        body {
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0; padding: max(16px, env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
+            background: var(--bg); color: var(--ink); font-size: 15px; line-height: 1.5;
+        }
+        main { max-width: 640px; margin: 0 auto; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px 18px; }
+        h1 { margin: 0 0 4px; font-size: 22px; }
+        h2 { margin: 22px 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
+        p, li { margin: 0 0 8px; }
+        .muted { color: var(--muted); font-size: 13px; }
+        a { color: var(--head); font-weight: 600; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .back { display: inline-block; margin-bottom: 14px; }
+    </style>
+</head>
+<body>
+    <main>
+        <a class="back" href="./">← Back to the planner</a>
+        <h1>Privacy</h1>
+        <p class="muted">Last updated October 29, 2026</p>
+
+        <h2>The short version</h2>
+        <p>The APA Lineup Planner has no accounts and no server of its own. Your roster never leaves your device unless you share it.</p>
+
+        <h2>What is stored, and where</h2>
+        <ul>
+            <li><b>Your roster</b> (player names and skill levels) and your settings are saved in your browser's local storage on your device. Nothing is sent to us. Clearing your browser data removes it.</li>
+            <li><b>Shared roster links</b> put the roster in the part of the URL after <code>#</code>. Browsers never send that part to any server, so only the people you send the link to can see it. Treat the link like you would treat the roster itself.</li>
+            <li><b>Offline cache.</b> The app's own files are cached by your browser so it opens without signal. The cache holds the app, not your data.</li>
+        </ul>
+
+        <h2>Hosting</h2>
+        <p>The site is served by GitHub Pages. Like any web host, GitHub may log basic request data (such as IP address and browser type) to operate the service. See <a href="https://docs.github.com/en/pages/getting-started-with-github-pages/about-github-pages#data-collection" target="_blank" rel="noopener">GitHub's note on Pages data collection</a>.</p>
+
+        <h2>Advertising and affiliate links</h2>
+        <p>The site may show links to products. Some are affiliate links: if you buy through one, the site earns a small commission at no extra cost to you. As an Amazon Associate the site owner earns from qualifying purchases. Affiliate links are marked and are chosen because they're things the author actually uses.</p>
+        <p>If display advertising is added, the ad network (for example Google AdSense) may use cookies or similar technology to show ads and measure them. You can opt out of personalized advertising at <a href="https://www.google.com/settings/ads" target="_blank" rel="noopener">Google's Ads Settings</a> or <a href="https://www.aboutads.info/choices/" target="_blank" rel="noopener">aboutads.info</a>. The planner itself sets no advertising cookies.</p>
+
+        <h2>Analytics</h2>
+        <p>None at the moment. If a privacy-friendly, cookie-free counter is added later, this page will say so.</p>
+
+        <h2>Not affiliated with APA</h2>
+        <p>This is an independent, free tool built by a league player. It is not affiliated with, endorsed by, or connected to the American Poolplayers Association. "APA" is used only to describe the league format the tool supports.</p>
+
+        <h2>Questions</h2>
+        <p>Open an issue on <a href="https://github.com/thadrazdow/apa-lineup-planner" target="_blank" rel="noopener">the GitHub repository</a>.</p>
+    </main>
+</body>
+</html>
